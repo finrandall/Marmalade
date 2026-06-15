@@ -153,13 +153,13 @@ elif output_mode == "spectrum":
         raise ValueError("noise_mode must be 'quantum', 'classical' or 'none'")
 
     if model_mode == "fm":
-        plot_fm_magnon_spectrum(Sx_samp, Sy_samp, Lx, Ly, nsamp, dt_sample, J_abs, K, gamma, mu)
+        plot_fm_magnon_spectrum(Sx_samp, Sy_samp, Lx, Ly, nsamp, dt_sample, J_abs, K, gamma, mu, path_mode="high_symmetry")
 
     elif model_mode == "afm":
-        plot_afm_magnon_spectrum(Sx_samp, Sy_samp, Lx, Ly, nsamp, dt_sample, J_abs, K, h, 1.0, gamma, mu)
+        plot_afm_magnon_spectrum(Sx_samp, Sy_samp, Lx, Ly, nsamp, dt_sample, J_abs, K, h, 1.0, gamma, mu, path_mode="kx")
 
     t1 = time.time()
-    print(f"Simulation time: {t1 - t0:.3f} s")\
+    print(f"Simulation time: {t1 - t0:.3f} s")
 
     plt.show()
 
