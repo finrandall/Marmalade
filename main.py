@@ -25,6 +25,7 @@ def get_parameters():
 
     defaults = {
         "noise_mode": "classical",
+        "model_mode": "fm",
         "initial_state": "aligned",
         "T": "100.0",
         "Lx": "32",
@@ -32,13 +33,16 @@ def get_parameters():
         "dt": "1e-16",
         "end_time": "1e-12",
         "stride": "10",
-        "J": "1e-2",
+        "J1": "1e-2",
+        "J2": "0.0",
         "K": "1e-4",
+        "h": "0.0",
         "lam": "0.01",
     }
 
     labels = {
         "noise_mode": "Noise mode",
+        "model_mode": "Model mode",
         "initial_state": "Initial state",
         "T": "T",
         "Lx": "Lx",
@@ -46,8 +50,10 @@ def get_parameters():
         "dt": "dt",
         "end_time": "End time",
         "stride": "Stride",
-        "J": "J",
+        "J1": "J1",
+        "J2": "J2",
         "K": "K",
+        "h": "h",
         "lam": "λ",
     }
 
@@ -66,6 +72,7 @@ def get_parameters():
 
     def submit():
         params["noise_mode"] = entries["noise_mode"].get()
+        params["model_mode"] = entries["model_mode"].get()
         params["initial_state"] = entries["initial_state"].get()
         params["T"] = float(entries["T"].get())
         params["Lx"] = int(entries["Lx"].get())
@@ -73,14 +80,14 @@ def get_parameters():
         params["dt"] = float(entries["dt"].get())
         params["end_time"] = float(entries["end_time"].get())
         params["stride"] = int(entries["stride"].get())
-        params["J"] = float(entries["J"].get())
+        params["J1"] = float(entries["J1"].get())
+        params["J2"] = float(entries["J2"].get())
         params["K"] = float(entries["K"].get())
+        params["h"] = float(entries["h"].get())
         params["lam"] = float(entries["lam"].get())
 
         root.withdraw()
-
         root.update_idletasks()
-
         root.destroy()
 
     button = ttk.Button(root, text="Run simulation", command=submit)
@@ -103,6 +110,7 @@ def plot_magnetisation(t_series, M_series):
 params = get_parameters()
 
 noise_mode = params["noise_mode"]
+model_mode = params["model_mode"]
 initial_state = params["initial_state"]
 
 T = params["T"]
@@ -117,8 +125,10 @@ iterations = int(end_time / dt)
 
 stride = params["stride"]
 
-J = params["J"]
+J1 = params["J1"]
+J2 = params["J2"]
 K = params["K"]
+h = params["h"]
 
 mu = 9.274e-24
 gamma = 1.7609e11
@@ -127,11 +137,24 @@ hbar = 1.054571817e-34
 kB = 1.380649e-23
 eV = 1.602176634e-19
 
-J *= eV
+J1 *= eV
+J2 *= eV
 K *= eV
+h *= eV
 
-J_mu = J / mu
+if model_mode == "fm":
+    J1 = abs(J1)
+
+elif model_mode == "afm":
+    J1 = -abs(J1)
+
+else:
+    raise ValueError("model_mode must be 'fm' or 'afm'")
+
+J1_mu = J1 / mu
+J2_mu = J2 / mu
 K_mu = K / mu
+h = h / mu
 
 kT = kB * T
 
@@ -145,7 +168,7 @@ c_pref = np.sqrt(2.0 * Gamma / dt)
 amp5, amp6 = quantum_noise_amplitudes(dt_q)
 
 S = init_spins(Lx, Ly, mode=initial_state)
-neighbour_list, next_neighbour_list = build_neighbour_list(Lx, Ly)
+nn, nnn = build_neighbour_list(Lx, Ly)
 
 n_samples = (iterations + stride - 1) // stride
 
@@ -158,13 +181,13 @@ t0 = time.time()
 
 if noise_mode == "quantum":
     z5, v5, z6, v6 = init_quantum_noise(N)
-    evolve_quantum_time_series(S, neighbour_list, z5, v5, z6, v6, t_series, M_series, dt, gamma, lam, J_mu, K_mu, q_pref, dt_q, amp5, amp6, iterations, stride)
+    evolve_quantum_time_series(S, nn, nnn, z5, v5, z6, v6, t_series, M_series, dt, gamma, lam, J1_mu, J2_mu, K_mu, h, q_pref, dt_q, amp5, amp6, iterations, stride)
 
 elif noise_mode == "classical":
-    evolve_classical_time_series(S, neighbour_list, t_series, M_series, dt, gamma, lam, J_mu, K_mu, c_pref, iterations, stride)
+    evolve_classical_time_series(S, nn, nnn, t_series, M_series, dt, gamma, lam, J1_mu, J2_mu, K_mu, h, c_pref, iterations, stride)
 
 elif noise_mode == "none":
-    evolve_deterministic_time_series(S, neighbour_list, t_series, M_series, dt, gamma, lam, J_mu, K_mu, iterations, stride)
+    evolve_deterministic_time_series(S, nn, nnn, t_series, M_series, dt, gamma, lam, J1_mu, J2_mu, K_mu, h, iterations, stride)
 
 else:
     raise ValueError("noise_mode must be 'quantum', 'classical' or 'none'")
