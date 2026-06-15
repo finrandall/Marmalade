@@ -46,24 +46,24 @@ def get_parameters():
         value_to_display[key] = {value: display for display, value in mapping.items()}
 
     defaults = {
-        "output_mode": "magnetisation",
-        "noise_mode": "classical",
+        "output_mode": "spectrum",
+        "noise_mode": "quantum",
         "model_mode": "fm",
         "initial_state": "fm",
-        "T": "100.0",
-        "Lx": "32",
-        "Ly": "32",
-        "dt": "1e-16",
-        "end_time": "1e-12",
-        "burn_in_time": "1e-13",
-        "spectrum_path": "kx",
+        "T": "10.0",
+        "Lx": "64",
+        "Ly": "64",
+        "dt": "3e-16",
+        "end_time": "6e-12",
+        "burn_in_time": "1e-12",
+        "spectrum_path": "high_symmetry",
         "show_analytic": "True",
         "stride": "10",
         "J1": "1e-2",
         "J2": "0.0",
         "K": "1e-4",
         "h": "0.0",
-        "lam": "0.01",
+        "lam": "0.0001",
     }
 
     labels = {
