@@ -24,22 +24,37 @@ def get_parameters():
     entries = {}
 
     defaults = {
-        "noise_mode": "quantum",
+        "noise_mode": "classical",
         "initial_state": "aligned",
-        "T": "20.0",
+        "T": "100.0",
         "Lx": "32",
         "Ly": "32",
-        "dt": "3e-16",
-        "end_time": "1e-11",
+        "dt": "1e-16",
+        "end_time": "1e-12",
         "stride": "10",
         "J": "1e-2",
         "K": "1e-4",
-        "lam": "0.0001"}
+        "lam": "0.01",
+    }
+
+    labels = {
+        "noise_mode": "Noise mode",
+        "initial_state": "Initial state",
+        "T": "T",
+        "Lx": "Lx",
+        "Ly": "Ly",
+        "dt": "dt",
+        "end_time": "End time",
+        "stride": "Stride",
+        "J": "J",
+        "K": "K",
+        "lam": "λ",
+    }
 
     row = 0
 
     for key, value in defaults.items():
-        label = ttk.Label(root, text=key)
+        label = ttk.Label(root, text=labels[key])
         label.grid(row=row, column=0, padx=8, pady=4, sticky="w")
 
         entry = ttk.Entry(root, width=20)
@@ -61,6 +76,10 @@ def get_parameters():
         params["J"] = float(entries["J"].get())
         params["K"] = float(entries["K"].get())
         params["lam"] = float(entries["lam"].get())
+
+        root.withdraw()
+
+        root.update_idletasks()
 
         root.destroy()
 
@@ -152,6 +171,6 @@ else:
 
 t1 = time.time()
 
-plot_magnetisation(t_series, M_series)
-
 print(f"Simulation time: {t1 - t0:.3f} s")
+
+plot_magnetisation(t_series, M_series)
