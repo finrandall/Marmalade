@@ -13,7 +13,7 @@ def init_spins(Lx, Ly, mode="afm", seed=None):
     if mode == "aligned":
         return np.tile(np.array([0.0, 0.0, 1.0], dtype=np.float64),(N, 1))
 
-    if mode == "afm":
+    if mode == "neel":
         S = np.empty((N, 3), dtype=np.float64)
 
         for iy in range(Ly):

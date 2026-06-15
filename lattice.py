@@ -3,7 +3,7 @@ from numba import njit
 
 
 @njit
-def build_neighbour_lists(Lx, Ly):
+def build_neighbour_list(Lx, Ly):
     N = Lx * Ly
     nn = np.empty((N, 4), dtype=np.int32)
     nnn = np.empty((N, 4), dtype=np.int32)
