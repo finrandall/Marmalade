@@ -10,10 +10,10 @@ def init_spins(Lx, Ly, mode="afm", seed=None):
         S /= np.linalg.norm(S, axis=1, keepdims=True)
         return S
 
-    if mode == "aligned":
+    if mode == "fm":
         return np.tile(np.array([0.0, 0.0, 1.0], dtype=np.float64),(N, 1))
 
-    if mode == "neel":
+    if mode == "afm":
         S = np.empty((N, 3), dtype=np.float64)
 
         for iy in range(Ly):
