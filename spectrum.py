@@ -195,12 +195,13 @@ def afm_analytic_branches(kx, ky, J1, J2, K, h, S_spin, gamma, mu):
 
 
 def plot_spectrum_path(S_path, omega, path_dist, tick_positions, tick_labels, analytic_curves=None):
+    omega_min = 0.0
+
     if analytic_curves is None:
         omega_max = np.percentile(omega[omega > 0.0], 90.0)
     else:
-        omega_max = 1.1 * max(np.max(curve_omega) for _, curve_omega in analytic_curves)
+        omega_max = 1.1 * max(np.max(np.abs(curve_omega)) for _, curve_omega in analytic_curves)
 
-    omega_min = 0.0
     mask = (omega >= omega_min) & (omega <= omega_max)
 
     omega_cut = omega[mask]
@@ -215,8 +216,11 @@ def plot_spectrum_path(S_path, omega, path_dist, tick_positions, tick_labels, an
     plt.pcolormesh(x_edges, y_edges, intensity, shading="auto", cmap="PuBu_r")
 
     if analytic_curves is not None:
-        for curve_dist, curve_omega in analytic_curves:
-            plt.plot(curve_dist, curve_omega, linewidth=0.7, alpha=0.8, linestyle="-", color="red")
+        analytic_colors = ["red", "orange"]
+
+        for n, (curve_dist, curve_omega) in enumerate(analytic_curves):
+            color = analytic_colors[n] if n < len(analytic_colors) else "red"
+            plt.plot(curve_dist, np.abs(curve_omega), linewidth=0.7, alpha=0.8, linestyle="-", color=color)
 
     for tick in tick_positions:
         plt.axvline(tick, linewidth=0.5, alpha=0.4)
