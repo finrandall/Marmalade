@@ -21,10 +21,6 @@ def get_parameters():
             "Quantum": "quantum",
             "None": "none",
         },
-        "model_mode": {
-            "Ferromagnetic": "fm",
-            "Antiferromagnetic": "afm",
-        },
         "initial_state": {
             "Ferromagnetic": "fm",
             "Antiferromagnetic": "afm",
@@ -48,28 +44,26 @@ def get_parameters():
     defaults = {
         "output_mode": "spectrum",
         "noise_mode": "quantum",
-        "model_mode": "fm",
-        "initial_state": "fm",
+        "initial_state": "afm",
         "T": "10.0",
-        "Lx": "64",
-        "Ly": "64",
+        "Lx": "128",
+        "Ly": "128",
         "dt": "3e-16",
-        "end_time": "6e-12",
-        "burn_in_time": "1e-12",
+        "end_time": "2e-11",
+        "burn_in_time": "4e-12",
         "spectrum_path": "high_symmetry",
-        "show_analytic": "True",
+        "show_analytic": True,
         "stride": "10",
-        "J1": "1e-2",
-        "J2": "0.0",
+        "J1": "-1e-2",
+        "J2": "1e-3",
         "K": "1e-4",
-        "h": "0.0",
+        "h": "1e-3",
         "lam": "0.0001",
     }
 
     labels = {
         "output_mode": "Output mode",
         "noise_mode": "Noise mode",
-        "model_mode": "Model type",
         "initial_state": "Initial state",
         "T": "Temperature",
         "Lx": "Lattice size x",
@@ -131,7 +125,7 @@ def get_parameters():
 
             if key in display_to_value:
                 entry = ttk.Combobox(window, values=tuple(display_to_value[key].keys()), width=18, state="readonly")
-                entry.set(value_to_display[key][display_to_value[key].get(str(defaults[key]), defaults[key])])
+                entry.set(value_to_display[key][defaults[key]])
             else:
                 entry = ttk.Entry(window, width=20)
                 entry.insert(0, str(defaults[key]))
@@ -143,7 +137,7 @@ def get_parameters():
         def save_spectrum_parameters():
             defaults["burn_in_time"] = spectrum_entries["burn_in_time"].get()
             defaults["spectrum_path"] = display_to_value["spectrum_path"][spectrum_entries["spectrum_path"].get()]
-            defaults["show_analytic"] = spectrum_entries["show_analytic"].get()
+            defaults["show_analytic"] = display_to_value["show_analytic"][spectrum_entries["show_analytic"].get()]
 
             window.destroy()
 
@@ -153,7 +147,6 @@ def get_parameters():
     def submit():
         params["output_mode"] = display_to_value["output_mode"][entries["output_mode"].get()]
         params["noise_mode"] = display_to_value["noise_mode"][entries["noise_mode"].get()]
-        params["model_mode"] = display_to_value["model_mode"][entries["model_mode"].get()]
         params["initial_state"] = display_to_value["initial_state"][entries["initial_state"].get()]
         params["T"] = float(entries["T"].get())
         params["Lx"] = int(entries["Lx"].get())
@@ -162,7 +155,7 @@ def get_parameters():
         params["end_time"] = float(entries["end_time"].get())
         params["burn_in_time"] = float(defaults["burn_in_time"])
         params["spectrum_path"] = defaults["spectrum_path"]
-        params["show_analytic"] = display_to_value["show_analytic"][defaults["show_analytic"]]
+        params["show_analytic"] = defaults["show_analytic"]
         params["stride"] = int(entries["stride"].get())
         params["J1"] = float(entries["J1"].get())
         params["J2"] = float(entries["J2"].get())

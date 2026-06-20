@@ -28,7 +28,10 @@ params = get_parameters()
 
 output_mode = params["output_mode"]
 noise_mode = params["noise_mode"]
-model_mode = params["model_mode"]
+
+spectrum_path = params["spectrum_path"]
+show_analytic = params["show_analytic"]
+
 initial_state = params["initial_state"]
 
 T = params["T"]
@@ -60,17 +63,6 @@ J1 *= eV
 J2 *= eV
 K *= eV
 h *= eV
-
-J_abs = abs(J1)
-
-if model_mode == "fm":
-    J1 = abs(J1)
-
-elif model_mode == "afm":
-    J1 = -abs(J1)
-
-else:
-    raise ValueError("model_mode must be 'fm' or 'afm'")
 
 J1_mu = J1 / mu
 J2_mu = J2 / mu
@@ -152,11 +144,17 @@ elif output_mode == "spectrum":
     else:
         raise ValueError("noise_mode must be 'quantum', 'classical' or 'none'")
 
-    if model_mode == "fm":
-        plot_fm_magnon_spectrum(Sx_samp, Sy_samp, Lx, Ly, nsamp, dt_sample, J_abs, K, gamma, mu, path_mode="high_symmetry")
+    if spectrum_path not in ("kx", "high_symmetry"):
+        raise ValueError("path_mode must be 'kx' or 'high_symmetry'")
 
-    elif model_mode == "afm":
-        plot_afm_magnon_spectrum(Sx_samp, Sy_samp, Lx, Ly, nsamp, dt_sample, J_abs, K, h, 1.0, gamma, mu, path_mode="kx")
+    if initial_state == "fm":
+        plot_fm_magnon_spectrum(Sx_samp, Sy_samp, Lx, Ly, nsamp, dt_sample, J1, J2, K, h, gamma, mu, path_mode=spectrum_path, show_analytic=show_analytic)
+
+    elif initial_state == "afm":
+        plot_afm_magnon_spectrum(Sx_samp, Sy_samp, Lx, Ly, nsamp, dt_sample, J1, J2, K, h, 1.0, gamma, mu, path_mode=spectrum_path, show_analytic=show_analytic)
+
+    else:
+        raise ValueError("initial_state must be 'fm' or 'afm'")
 
     t1 = time.time()
     print(f"Simulation time: {t1 - t0:.3f} s")
