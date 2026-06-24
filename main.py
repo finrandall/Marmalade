@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from initialise import init_spins
-from lattice import build_neighbour_list
+from lattice import build_neighbour_list, neighbour_statistics
 
 from noise import init_quantum_noise
 from noise import quantum_noise_amplitudes
@@ -20,6 +20,7 @@ from evolve import evolve_deterministic_spin_samples
 
 from magnetisation import plot_magnetisation_magnitude
 from magnetisation import plot_transverse_magnetisation
+from magnetisation import plot_energy
 
 from spectrum import plot_fm_magnon_spectrum
 from spectrum import plot_afm_magnon_spectrum
@@ -38,6 +39,8 @@ T = params["T"]
 
 Lx = params["Lx"]
 Ly = params["Ly"]
+pbc_x = params["pbc_x"]
+pbc_y = params["pbc_y"]
 N = Lx * Ly
 
 dt = params["dt"]
@@ -81,7 +84,7 @@ c_pref = np.sqrt(2.0 * Gamma / dt)
 amp5, amp6 = quantum_noise_amplitudes(dt_q)
 
 S = init_spins(Lx, Ly, mode=initial_state)
-nn, nnn = build_neighbour_list(Lx, Ly)
+nn, nnn = build_neighbour_list(Lx, Ly, pbc_x, pbc_y)
 
 print("Running simulation...")
 
@@ -95,22 +98,24 @@ if output_mode == "magnetisation":
     My_series = np.empty(n_samples, dtype=np.float64)
     Mz_series = np.empty(n_samples, dtype=np.float64)
     M_series = np.empty(n_samples, dtype=np.float64)
+    E_series = np.empty(n_samples, dtype=np.float64)
 
     if noise_mode == "quantum":
         z5, v5, z6, v6 = init_quantum_noise(N)
-        evolve_quantum_time_series(S, nn, nnn, z5, v5, z6, v6, t_series, Mx_series, My_series, Mz_series, M_series, dt, gamma, lam, J1_mu, J2_mu, K_mu, h_mu, q_pref, dt_q, amp5, amp6, iterations, stride)
+        evolve_quantum_time_series(S, nn, nnn, z5, v5, z6, v6, t_series, Mx_series, My_series, Mz_series, M_series, E_series, dt, gamma, lam, J1_mu, J2_mu, K_mu, h_mu, q_pref, dt_q, amp5, amp6, iterations, stride)
 
     elif noise_mode == "classical":
-        evolve_classical_time_series(S, nn, nnn, t_series, Mx_series, My_series, Mz_series, M_series, dt, gamma, lam, J1_mu, J2_mu, K_mu, h_mu, c_pref, iterations, stride)
+        evolve_classical_time_series(S, nn, nnn, t_series, Mx_series, My_series, Mz_series, M_series, E_series, dt, gamma, lam, J1_mu, J2_mu, K_mu, h_mu, c_pref, iterations, stride)
 
     elif noise_mode == "none":
-        evolve_deterministic_time_series(S, nn, nnn, t_series, Mx_series, My_series, Mz_series, M_series, dt, gamma, lam, J1_mu, J2_mu, K_mu, h_mu, iterations, stride)
+        evolve_deterministic_time_series(S, nn, nnn, t_series, Mx_series, My_series, Mz_series, M_series, E_series, dt, gamma, lam, J1_mu, J2_mu, K_mu, h_mu, iterations, stride)
 
     else:
         raise ValueError("noise_mode must be 'quantum', 'classical' or 'none'")
 
     plot_magnetisation_magnitude(t_series, M_series)
     plot_transverse_magnetisation(t_series, Mx_series, My_series)
+    plot_energy(t_series, E_series)
 
     t1 = time.time()
     print(f"Simulation time: {t1 - t0:.3f} s")

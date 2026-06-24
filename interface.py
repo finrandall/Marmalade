@@ -34,6 +34,14 @@ def get_parameters():
             "True": True,
             "False": False,
         },
+        "pbc_x": {
+            "True": True,
+            "False": False,
+        },
+        "pbc_y": {
+            "True": True,
+            "False": False,
+        },
     }
 
     value_to_display = {}
@@ -45,20 +53,22 @@ def get_parameters():
         "output_mode": "spectrum",
         "noise_mode": "quantum",
         "initial_state": "afm",
-        "T": "10.0",
-        "Lx": "128",
-        "Ly": "128",
         "dt": "3e-16",
         "end_time": "2e-11",
-        "burn_in_time": "4e-12",
-        "spectrum_path": "high_symmetry",
-        "show_analytic": True,
         "stride": "10",
         "J1": "-1e-2",
         "J2": "1e-3",
         "K": "1e-4",
         "h": "1e-3",
+        "T": "10.0",
         "lam": "0.0001",
+        "Lx": "128",
+        "Ly": "128",
+        "pbc_x": True,
+        "pbc_y": True,
+        "burn_in_time": "4e-12",
+        "spectrum_path": "high_symmetry",
+        "show_analytic": True,
     }
 
     labels = {
@@ -68,6 +78,8 @@ def get_parameters():
         "T": "Temperature",
         "Lx": "Lattice size x",
         "Ly": "Lattice size y",
+        "pbc_x": "Periodic boundary x",
+        "pbc_y": "Periodic boundary y",
         "dt": "Time step",
         "end_time": "End time",
         "burn_in_time": "Burn-in time",
@@ -82,26 +94,36 @@ def get_parameters():
     }
 
     row = 0
-    hidden_keys = {"burn_in_time", "spectrum_path", "show_analytic"}
 
-    for key, value in defaults.items():
-        if key in hidden_keys:
-            continue
+    parameter_groups = {
+        "Run options": ["output_mode", "noise_mode", "initial_state"],
+        "Time constants": ["dt", "end_time", "stride"],
+        "Simulation constants": ["J1", "J2", "K", "h", "T", "lam"],
+        "Lattice parameters": ["Lx", "Ly", "pbc_x", "pbc_y"],
+    }
 
-        label = ttk.Label(root, text=labels[key])
-        label.grid(row=row, column=0, padx=8, pady=4, sticky="w")
-
-        if key in display_to_value:
-            entry = ttk.Combobox(root, values=tuple(display_to_value[key].keys()), width=18, state="readonly")
-            entry.set(value_to_display[key][value])
-        else:
-            entry = ttk.Entry(root, width=20)
-            entry.insert(0, value)
-
-        entry.grid(row=row, column=1, padx=8, pady=4)
-
-        entries[key] = entry
+    for group_title, group_keys in parameter_groups.items():
+        frame = ttk.LabelFrame(root, text=group_title)
+        frame.grid(row=row, column=0, columnspan=2, padx=8, pady=6, sticky="ew")
         row += 1
+
+        group_row = 0
+
+        for key in group_keys:
+            label = ttk.Label(frame, text=labels[key])
+            label.grid(row=group_row, column=0, padx=8, pady=4, sticky="w")
+
+            if key in display_to_value:
+                entry = ttk.Combobox(frame, values=tuple(display_to_value[key].keys()), width=18, state="readonly")
+                entry.set(value_to_display[key][defaults[key]])
+            else:
+                entry = ttk.Entry(frame, width=20)
+                entry.insert(0, defaults[key])
+
+            entry.grid(row=group_row, column=1, padx=8, pady=4)
+
+            entries[key] = entry
+            group_row += 1
 
     def open_spectrum_parameters():
         window = tk.Toplevel(root)
@@ -151,6 +173,8 @@ def get_parameters():
         params["T"] = float(entries["T"].get())
         params["Lx"] = int(entries["Lx"].get())
         params["Ly"] = int(entries["Ly"].get())
+        params["pbc_x"] = display_to_value["pbc_x"][entries["pbc_x"].get()]
+        params["pbc_y"] = display_to_value["pbc_y"][entries["pbc_y"].get()]
         params["dt"] = float(entries["dt"].get())
         params["end_time"] = float(entries["end_time"].get())
         params["burn_in_time"] = float(defaults["burn_in_time"])

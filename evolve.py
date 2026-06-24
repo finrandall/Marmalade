@@ -4,6 +4,7 @@ from numba import njit
 
 from integrators import heun_step
 from magnetisation import store_magnetisation_sample
+from magnetisation import store_energy_sample
 from noise import quantum_noise_field
 from noise import quantum_noise_update
 from noise import classical_noise_field
@@ -20,7 +21,7 @@ def store_spin_sample(S, sample, Sx_samp, Sy_samp, Sz_samp):
 
 
 @njit
-def evolve_quantum_time_series(S, nn, nnn, z5, v5, z6, v6, t_series, Mx_series, My_series, Mz_series, M_series, dt, gamma, lam, J1_mu, J2_mu, K_mu, h, q_pref, dt_q, amp5, amp6, iterations, stride):
+def evolve_quantum_time_series(S, nn, nnn, z5, v5, z6, v6, t_series, Mx_series, My_series, Mz_series, M_series, E_series, dt, gamma, lam, J1_mu, J2_mu, K_mu, h, q_pref, dt_q, amp5, amp6, iterations, stride):
     n_sites = S.shape[0]
 
     H_eff = np.empty((n_sites, 3), dtype=np.float64)
@@ -46,11 +47,12 @@ def evolve_quantum_time_series(S, nn, nnn, z5, v5, z6, v6, t_series, Mx_series, 
         if step % stride == 0:
             t_series[sample] = step * dt
             store_magnetisation_sample(S, sample, Mx_series, My_series, Mz_series, M_series)
+            store_energy_sample(S, nn, nnn, sample, E_series, J1_mu, J2_mu, K_mu, h)
             sample += 1
 
 
 @njit
-def evolve_classical_time_series(S, nn, nnn, t_series, Mx_series, My_series, Mz_series, M_series, dt, gamma, lam, J1_mu, J2_mu, K_mu, h, c_pref, iterations, stride):
+def evolve_classical_time_series(S, nn, nnn, t_series, Mx_series, My_series, Mz_series, M_series, E_series, dt, gamma, lam, J1_mu, J2_mu, K_mu, h, c_pref, iterations, stride):
     n_sites = S.shape[0]
 
     H_eff = np.empty((n_sites, 3), dtype=np.float64)
@@ -74,11 +76,12 @@ def evolve_classical_time_series(S, nn, nnn, t_series, Mx_series, My_series, Mz_
         if step % stride == 0:
             t_series[sample] = step * dt
             store_magnetisation_sample(S, sample, Mx_series, My_series, Mz_series, M_series)
+            store_energy_sample(S, nn, nnn, sample, E_series, J1_mu, J2_mu, K_mu, h)
             sample += 1
 
 
 @njit
-def evolve_deterministic_time_series(S, nn, nnn, t_series, Mx_series, My_series, Mz_series, M_series, dt, gamma, lam, J1_mu, J2_mu, K_mu, h, iterations, stride):
+def evolve_deterministic_time_series(S, nn, nnn, t_series, Mx_series, My_series, Mz_series, M_series, E_series, dt, gamma, lam, J1_mu, J2_mu, K_mu, h, iterations, stride):
     n_sites = S.shape[0]
 
     H_eff = np.empty((n_sites, 3), dtype=np.float64)
@@ -101,6 +104,7 @@ def evolve_deterministic_time_series(S, nn, nnn, t_series, Mx_series, My_series,
         if step % stride == 0:
             t_series[sample] = step * dt
             store_magnetisation_sample(S, sample, Mx_series, My_series, Mz_series, M_series)
+            store_energy_sample(S, nn, nnn, sample, E_series, J1_mu, J2_mu, K_mu, h)
             sample += 1
 
 

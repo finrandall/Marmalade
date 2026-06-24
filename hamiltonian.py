@@ -18,15 +18,17 @@ def effective_field(S, nn, nnn, H, J1_mu, J2_mu, K_mu, h_mu):
 
         for a in range(nn.shape[1]):
             j = nn[i, a]
-            hx1 += S[j, 0]
-            hy1 += S[j, 1]
-            hz1 += S[j, 2]
+            if j != -1:
+                hx1 += S[j, 0]
+                hy1 += S[j, 1]
+                hz1 += S[j, 2]
 
         for a in range(nnn.shape[1]):
             j = nnn[i, a]
-            hx2 += S[j, 0]
-            hy2 += S[j, 1]
-            hz2 += S[j, 2]
+            if j != -1:
+                hx2 += S[j, 0]
+                hy2 += S[j, 1]
+                hz2 += S[j, 2]
 
         H[i, 0] = J1_mu * hx1 + J2_mu * hx2
         H[i, 1] = J1_mu * hy1 + J2_mu * hy2
