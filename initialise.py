@@ -29,3 +29,31 @@ def init_spins(Lx, Ly, mode="afm", seed=None):
         return S
 
     raise ValueError("mode must be 'random', 'aligned' or 'afm'")
+
+
+def init_test_spins(Lx, Ly, mode="single_tilted"):
+    N = Lx * Ly
+
+    if mode == "single_tilted":
+        if N != 1:
+            raise ValueError("'single_tilted' requires exactly one spin")
+
+        theta = 0.2
+        S = np.empty((N, 3), dtype=np.float64)
+        S[0, 0] = np.sin(theta)
+        S[0, 1] = 0.0
+        S[0, 2] = np.cos(theta)
+
+        return S
+
+    if mode == "two_spin":
+        if N != 2:
+            raise ValueError("'two_spin' requires exactly two spins")
+
+        S = np.empty((N, 3), dtype=np.float64)
+        S[0] = np.array([0.0, 0.0, 1.0], dtype=np.float64)
+        S[1] = np.array([1.0, 0.0, 0.0], dtype=np.float64)
+
+        return S
+
+    raise ValueError("mode must be 'single_tilted' or 'two_spin'")

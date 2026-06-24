@@ -8,6 +8,8 @@ from magnetisation import store_energy_sample
 from noise import quantum_noise_field
 from noise import quantum_noise_update
 from noise import classical_noise_field
+from integrators import rkmk2_step
+from integrators import classical_noise_rodrigues_step
 
 
 @njit
@@ -21,7 +23,7 @@ def store_spin_sample(S, sample, Sx_samp, Sy_samp, Sz_samp):
 
 
 @njit
-def evolve_quantum_time_series(S, nn, nnn, z5, v5, z6, v6, t_series, Mx_series, My_series, Mz_series, M_series, E_series, dt, gamma, lam, J1_mu, J2_mu, K_mu, h, q_pref, dt_q, amp5, amp6, iterations, stride):
+def evolve_quantum_time_series(S, nn, nnn, z5, v5, z6, v6, t_series, Mx_series, My_series, Mz_series, M_series, E_series, dt, gamma, lam, J1_mu, J2_mu, K_mu, h_mu, J1, J2, K, h, q_pref, dt_q, amp5, amp6, iterations, stride):
     n_sites = S.shape[0]
 
     H_eff = np.empty((n_sites, 3), dtype=np.float64)
@@ -38,7 +40,7 @@ def evolve_quantum_time_series(S, nn, nnn, z5, v5, z6, v6, t_series, Mx_series, 
 
     for step in range(iterations):
         quantum_noise_field(z5, z6, r, q_pref)
-        heun_step(S, S_new, S_tilde, r, nn, nnn, H_eff, H_eff_tilde, H_tot, H_tot_tilde, dS1, dS2, dt, gamma, lam, J1_mu, J2_mu, K_mu, h)
+        heun_step(S, S_new, S_tilde, r, nn, nnn, H_eff, H_eff_tilde, H_tot, H_tot_tilde, dS1, dS2, dt, gamma, lam, J1_mu, J2_mu, K_mu, h_mu)
 
         S, S_new = S_new, S
 
@@ -47,12 +49,12 @@ def evolve_quantum_time_series(S, nn, nnn, z5, v5, z6, v6, t_series, Mx_series, 
         if step % stride == 0:
             t_series[sample] = step * dt
             store_magnetisation_sample(S, sample, Mx_series, My_series, Mz_series, M_series)
-            store_energy_sample(S, nn, nnn, sample, E_series, J1_mu, J2_mu, K_mu, h)
+            store_energy_sample(S, nn, nnn, sample, E_series, J1, J2, K, h)
             sample += 1
 
 
 @njit
-def evolve_classical_time_series(S, nn, nnn, t_series, Mx_series, My_series, Mz_series, M_series, E_series, dt, gamma, lam, J1_mu, J2_mu, K_mu, h, c_pref, iterations, stride):
+def evolve_classical_time_series(S, nn, nnn, t_series, Mx_series, My_series, Mz_series, M_series, E_series, dt, gamma, lam, J1_mu, J2_mu, K_mu, h_mu, J1, J2, K, h, c_pref, iterations, stride):
     n_sites = S.shape[0]
 
     H_eff = np.empty((n_sites, 3), dtype=np.float64)
@@ -69,19 +71,19 @@ def evolve_classical_time_series(S, nn, nnn, t_series, Mx_series, My_series, Mz_
 
     for step in range(iterations):
         classical_noise_field(r, c_pref)
-        heun_step(S, S_new, S_tilde, r, nn, nnn, H_eff, H_eff_tilde, H_tot, H_tot_tilde, dS1, dS2, dt, gamma, lam, J1_mu, J2_mu, K_mu, h)
+        heun_step(S, S_new, S_tilde, r, nn, nnn, H_eff, H_eff_tilde, H_tot, H_tot_tilde, dS1, dS2, dt, gamma, lam, J1_mu, J2_mu, K_mu, h_mu)
 
         S, S_new = S_new, S
 
         if step % stride == 0:
             t_series[sample] = step * dt
             store_magnetisation_sample(S, sample, Mx_series, My_series, Mz_series, M_series)
-            store_energy_sample(S, nn, nnn, sample, E_series, J1_mu, J2_mu, K_mu, h)
+            store_energy_sample(S, nn, nnn, sample, E_series, J1, J2, K, h)
             sample += 1
 
 
 @njit
-def evolve_deterministic_time_series(S, nn, nnn, t_series, Mx_series, My_series, Mz_series, M_series, E_series, dt, gamma, lam, J1_mu, J2_mu, K_mu, h, iterations, stride):
+def evolve_deterministic_heun_time_series(S, nn, nnn, t_series, Mx_series, My_series, Mz_series, M_series, E_series, dt, gamma, lam, J1_mu, J2_mu, K_mu, h_mu, J1, J2, K, h, iterations, stride):
     n_sites = S.shape[0]
 
     H_eff = np.empty((n_sites, 3), dtype=np.float64)
@@ -97,14 +99,41 @@ def evolve_deterministic_time_series(S, nn, nnn, t_series, Mx_series, My_series,
     sample = 0
 
     for step in range(iterations):
-        heun_step(S, S_new, S_tilde, r, nn, nnn, H_eff, H_eff_tilde, H_tot, H_tot_tilde, dS1, dS2, dt, gamma, lam, J1_mu, J2_mu, K_mu, h)
+        heun_step(S, S_new, S_tilde, r, nn, nnn, H_eff, H_eff_tilde, H_tot, H_tot_tilde, dS1, dS2, dt, gamma, lam, J1_mu, J2_mu, K_mu, h_mu)
 
         S, S_new = S_new, S
 
         if step % stride == 0:
             t_series[sample] = step * dt
             store_magnetisation_sample(S, sample, Mx_series, My_series, Mz_series, M_series)
-            store_energy_sample(S, nn, nnn, sample, E_series, J1_mu, J2_mu, K_mu, h)
+            store_energy_sample(S, nn, nnn, sample, E_series, J1, J2, K, h)
+            sample += 1
+
+@njit
+def evolve_deterministic_rkmk2_time_series(S, nn, nnn, t_series, Mx_series, My_series, Mz_series, M_series, E_series, dt, gamma, lam, J1_mu, J2_mu, K_mu, h_mu, J1, J2, K, h, iterations, stride):
+    n_sites = S.shape[0]
+
+    H_eff = np.empty((n_sites, 3), dtype=np.float64)
+    H_mid = np.empty((n_sites, 3), dtype=np.float64)
+    omega = np.empty((n_sites, 3), dtype=np.float64)
+    omega_mid = np.empty((n_sites, 3), dtype=np.float64)
+    S_mid = np.empty((n_sites, 3), dtype=np.float64)
+    S_new = np.empty((n_sites, 3), dtype=np.float64)
+    S_init = np.empty((n_sites, 3), dtype=np.float64)
+    phi = np.empty((n_sites, 3), dtype=np.float64)
+    k = np.empty((n_sites, 3), dtype=np.float64)
+
+    sample = 0
+
+    for step in range(iterations):
+        rkmk2_step(S, S_new, S_mid, S_init, phi, k, nn, nnn, H_eff, H_mid, omega, omega_mid, dt, gamma, lam, J1_mu, J2_mu, K_mu, h_mu)
+
+        S, S_new = S_new, S
+
+        if step % stride == 0:
+            t_series[sample] = step * dt
+            store_magnetisation_sample(S, sample, Mx_series, My_series, Mz_series, M_series)
+            store_energy_sample(S, nn, nnn, sample, E_series, J1, J2, K, h)
             sample += 1
 
 
@@ -164,6 +193,42 @@ def evolve_classical_spin_samples(S, nn, nnn, Sx_samp, Sy_samp, Sz_samp, dt, gam
             if sample < Sx_samp.shape[0]:
                 store_spin_sample(S, sample, Sx_samp, Sy_samp, Sz_samp)
                 sample += 1
+
+@njit
+def evolve_classical_rkmk2_time_series(S, nn, nnn, t_series, Mx_series, My_series, Mz_series, M_series, E_series, dt, gamma, lam, J1_mu, J2_mu, K_mu, h_mu, J1, J2, K, h, c_pref, iterations, stride):
+    n_sites = S.shape[0]
+
+    H_eff = np.empty((n_sites, 3), dtype=np.float64)
+    H_mid = np.empty((n_sites, 3), dtype=np.float64)
+    omega = np.empty((n_sites, 3), dtype=np.float64)
+    omega_mid = np.empty((n_sites, 3), dtype=np.float64)
+    S_mid = np.empty((n_sites, 3), dtype=np.float64)
+    S_new = np.empty((n_sites, 3), dtype=np.float64)
+    S_init = np.empty((n_sites, 3), dtype=np.float64)
+    phi = np.empty((n_sites, 3), dtype=np.float64)
+    k = np.empty((n_sites, 3), dtype=np.float64)
+    r = np.empty((n_sites, 3), dtype=np.float64)
+
+    sample = 0
+    half_dt = 0.5 * dt
+    c_pref_half = c_pref * np.sqrt(2.0)
+
+    for step in range(iterations):
+        classical_noise_field(r, c_pref_half)
+        classical_noise_rodrigues_step(S, r, gamma, lam, half_dt)
+
+        rkmk2_step(S, S_new, S_mid, S_init, phi, k, nn, nnn, H_eff, H_mid, omega, omega_mid, dt, gamma, lam, J1_mu, J2_mu, K_mu, h_mu)
+
+        S, S_new = S_new, S
+
+        classical_noise_field(r, c_pref_half)
+        classical_noise_rodrigues_step(S, r, gamma, lam, half_dt)
+
+        if step % stride == 0:
+            t_series[sample] = step * dt
+            store_magnetisation_sample(S, sample, Mx_series, My_series, Mz_series, M_series)
+            store_energy_sample(S, nn, nnn, sample, E_series, J1, J2, K, h)
+            sample += 1
 
 
 @njit

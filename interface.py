@@ -21,10 +21,16 @@ def get_parameters():
             "Quantum": "quantum",
             "None": "none",
         },
+        "integrator": {
+            "Heun": "heun",
+            "RKMK2": "rkmk2",
+        },
         "initial_state": {
             "Ferromagnetic": "fm",
             "Antiferromagnetic": "afm",
             "Random": "random",
+            "Single tilted test": "single_tilted",
+            "Two-spin test": "two_spin",
         },
         "spectrum_path": {
             "Kₓ": "kx",
@@ -42,6 +48,14 @@ def get_parameters():
             "True": True,
             "False": False,
         },
+        "plot_energy_drift": {
+            "True": True,
+            "False": False,
+        },
+        "print_diagnostics": {
+            "True": True,
+            "False": False,
+        },
     }
 
     value_to_display = {}
@@ -50,23 +64,26 @@ def get_parameters():
         value_to_display[key] = {value: display for display, value in mapping.items()}
 
     defaults = {
-        "output_mode": "spectrum",
-        "noise_mode": "quantum",
-        "initial_state": "afm",
-        "dt": "3e-16",
-        "end_time": "2e-11",
-        "stride": "10",
-        "J1": "-1e-2",
-        "J2": "1e-3",
-        "K": "1e-4",
-        "h": "1e-3",
-        "T": "10.0",
-        "lam": "0.0001",
-        "Lx": "128",
-        "Ly": "128",
+        "output_mode": "magnetisation",
+        "noise_mode": "classical",
+        "integrator": "heun",
+        "initial_state": "fm",
+        "dt": "1e-15",
+        "end_time": "1e-11",
+        "stride": "1",
+        "J1": "1e-2",
+        "J2": "0.0",
+        "K": "0.0",
+        "h": "0.0",
+        "T": "30.0",
+        "lam": "0.01",
+        "Lx": "64",
+        "Ly": "64",
         "pbc_x": True,
         "pbc_y": True,
-        "burn_in_time": "4e-12",
+        "plot_energy_drift": True,
+        "print_diagnostics": True,
+        "burn_in_time": "0.0",
         "spectrum_path": "high_symmetry",
         "show_analytic": True,
     }
@@ -74,12 +91,15 @@ def get_parameters():
     labels = {
         "output_mode": "Output mode",
         "noise_mode": "Noise mode",
+        "integrator": "Integrator",
         "initial_state": "Initial state",
         "T": "Temperature",
         "Lx": "Lattice size x",
         "Ly": "Lattice size y",
         "pbc_x": "Periodic boundary x",
         "pbc_y": "Periodic boundary y",
+        "plot_energy_drift": "Plot energy drift",
+        "print_diagnostics": "Print diagnostics",
         "dt": "Time step",
         "end_time": "End time",
         "burn_in_time": "Burn-in time",
@@ -96,7 +116,7 @@ def get_parameters():
     row = 0
 
     parameter_groups = {
-        "Run options": ["output_mode", "noise_mode", "initial_state"],
+        "Run options": ["output_mode", "noise_mode", "integrator", "initial_state"],
         "Time constants": ["dt", "end_time", "stride"],
         "Simulation constants": ["J1", "J2", "K", "h", "T", "lam"],
         "Lattice parameters": ["Lx", "Ly", "pbc_x", "pbc_y"],
@@ -166,15 +186,48 @@ def get_parameters():
         button = ttk.Button(window, text="Save", command=save_spectrum_parameters)
         button.grid(row=spectrum_row, column=0, columnspan=2, padx=8, pady=10)
 
+    def open_diagnostics_parameters():
+        window = tk.Toplevel(root)
+        window.title("Diagnostics parameters")
+
+        diagnostics_entries = {}
+
+        diagnostics_keys = ["plot_energy_drift", "print_diagnostics"]
+
+        diagnostics_row = 0
+
+        for key in diagnostics_keys:
+            label = ttk.Label(window, text=labels[key])
+            label.grid(row=diagnostics_row, column=0, padx=8, pady=4, sticky="w")
+
+            entry = ttk.Combobox(window, values=tuple(display_to_value[key].keys()), width=18, state="readonly")
+            entry.set(value_to_display[key][defaults[key]])
+
+            entry.grid(row=diagnostics_row, column=1, padx=8, pady=4)
+            diagnostics_entries[key] = entry
+            diagnostics_row += 1
+
+        def save_diagnostics_parameters():
+            defaults["plot_energy_drift"] = display_to_value["plot_energy_drift"][diagnostics_entries["plot_energy_drift"].get()]
+            defaults["print_diagnostics"] = display_to_value["print_diagnostics"][diagnostics_entries["print_diagnostics"].get()]
+
+            window.destroy()
+
+        button = ttk.Button(window, text="Save", command=save_diagnostics_parameters)
+        button.grid(row=diagnostics_row, column=0, columnspan=2, padx=8, pady=10)
+
     def submit():
         params["output_mode"] = display_to_value["output_mode"][entries["output_mode"].get()]
         params["noise_mode"] = display_to_value["noise_mode"][entries["noise_mode"].get()]
+        params["integrator"] = display_to_value["integrator"][entries["integrator"].get()]
         params["initial_state"] = display_to_value["initial_state"][entries["initial_state"].get()]
         params["T"] = float(entries["T"].get())
         params["Lx"] = int(entries["Lx"].get())
         params["Ly"] = int(entries["Ly"].get())
         params["pbc_x"] = display_to_value["pbc_x"][entries["pbc_x"].get()]
         params["pbc_y"] = display_to_value["pbc_y"][entries["pbc_y"].get()]
+        params["plot_energy_drift"] = defaults["plot_energy_drift"]
+        params["print_diagnostics"] = defaults["print_diagnostics"]
         params["dt"] = float(entries["dt"].get())
         params["end_time"] = float(entries["end_time"].get())
         params["burn_in_time"] = float(defaults["burn_in_time"])
@@ -193,6 +246,10 @@ def get_parameters():
 
     spectrum_button = ttk.Button(root, text="Spectrum parameters", command=open_spectrum_parameters)
     spectrum_button.grid(row=row, column=0, columnspan=2, padx=8, pady=4)
+    row += 1
+
+    diagnostics_button = ttk.Button(root, text="Diagnostics parameters", command=open_diagnostics_parameters)
+    diagnostics_button.grid(row=row, column=0, columnspan=2, padx=8, pady=4)
     row += 1
 
     button = ttk.Button(root, text="Run simulation", command=submit)
