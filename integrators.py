@@ -88,13 +88,9 @@ def dexp_inv_so3(phi, v, k):
     cy = pz * vx - px * vz
     cz = px * vy - py * vx
 
-    c2x = py * cz - pz * cy
-    c2y = pz * cx - px * cz
-    c2z = px * cy - py * cx
-
-    k[0] = vx - 0.5 * cx + (1.0 / 12.0) * c2x
-    k[1] = vy - 0.5 * cy + (1.0 / 12.0) * c2y
-    k[2] = vz - 0.5 * cz + (1.0 / 12.0) * c2z
+    k[0] = vx - 0.5 * cx
+    k[1] = vy - 0.5 * cy
+    k[2] = vz - 0.5 * cz
 
 
 @njit

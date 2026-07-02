@@ -3,7 +3,7 @@ import time
 import matplotlib.pyplot as plt
 import numpy as np
 
-from initialise import init_spins, init_test_spins
+from initialise import init_spins
 from lattice import build_neighbour_list
 
 from noise import init_quantum_noise
@@ -22,7 +22,6 @@ from evolve import evolve_deterministic_spin_samples
 
 from magnetisation import plot_magnetisation_magnitude
 from magnetisation import plot_transverse_magnetisation
-from magnetisation import plot_energy
 
 from spectrum import plot_fm_magnon_spectrum
 from spectrum import plot_afm_magnon_spectrum
@@ -44,9 +43,11 @@ class Simulation:
 
         self.Lx = params["Lx"]
         self.Ly = params["Ly"]
+        self.Lz = params["Lz"]
         self.pbc_x = params["pbc_x"]
         self.pbc_y = params["pbc_y"]
-        self.N = self.Lx * self.Ly
+        self.pbc_z = params["pbc_z"]
+        self.N = self.Lx * self.Ly * self.Lz
 
         self.dt = params["dt"]
         self.end_time = params["end_time"]
@@ -91,12 +92,8 @@ class Simulation:
         self.nnn = None
 
     def initialise(self):
-        if self.initial_state in ("single_tilted", "two_spin"):
-            self.S = init_test_spins(self.Lx, self.Ly, mode=self.initial_state)
-        else:
-            self.S = init_spins(self.Lx, self.Ly, mode=self.initial_state)
-
-        self.nn, self.nnn = build_neighbour_list(self.Lx, self.Ly, self.pbc_x, self.pbc_y)
+        self.S = init_spins(self.Lx, self.Ly, self.Lz, mode=self.initial_state)
+        self.nn, self.nnn = build_neighbour_list(self.Lx, self.Ly, self.Lz, self.pbc_x, self.pbc_y, self.pbc_z)
 
     def run(self):
         self.initialise()
@@ -120,73 +117,53 @@ class Simulation:
         My_series = np.empty(n_samples, dtype=np.float64)
         Mz_series = np.empty(n_samples, dtype=np.float64)
         M_series = np.empty(n_samples, dtype=np.float64)
-        E_series = np.empty(n_samples, dtype=np.float64)
 
         if self.noise_mode == "quantum":
-            self.run_quantum_time_series(t_series, Mx_series, My_series, Mz_series, M_series, E_series)
+            self.run_quantum_time_series(t_series, Mx_series, My_series, Mz_series, M_series)
 
         elif self.noise_mode == "classical":
-            self.run_classical_time_series(t_series, Mx_series, My_series, Mz_series, M_series, E_series)
+            self.run_classical_time_series(t_series, Mx_series, My_series, Mz_series, M_series)
 
         elif self.noise_mode == "none":
-            self.run_deterministic_time_series(t_series, Mx_series, My_series, Mz_series, M_series, E_series)
+            self.run_deterministic_time_series(t_series, Mx_series, My_series, Mz_series, M_series)
 
         else:
             raise ValueError("noise_mode must be 'quantum', 'classical' or 'none'")
 
         plot_magnetisation_magnitude(t_series, M_series)
         plot_transverse_magnetisation(t_series, Mx_series, My_series)
-        plot_energy(t_series, E_series)
-
-        if self.params["print_diagnostics"]:
-            self.print_energy_diagnostics(E_series)
 
         t1 = time.time()
         print(f"Simulation time: {t1 - t0:.3f} s")
 
         plt.show()
 
-    def run_quantum_time_series(self, t_series, Mx_series, My_series, Mz_series, M_series, E_series):
+    def run_quantum_time_series(self, t_series, Mx_series, My_series, Mz_series, M_series):
         if self.integrator != "heun":
             raise ValueError("Quantum noise currently only supports the Heun integrator")
 
         z5, v5, z6, v6 = init_quantum_noise(self.N)
-        evolve_quantum_time_series(self.S, self.nn, self.nnn, z5, v5, z6, v6, t_series, Mx_series, My_series, Mz_series, M_series, E_series, self.dt, self.gamma, self.lam, self.J1_mu, self.J2_mu, self.K_mu, self.h_mu, self.J1, self.J2, self.K, self.h, self.q_pref, self.dt_q, self.amp5, self.amp6, self.iterations, self.stride)
+        evolve_quantum_time_series(self.S, self.nn, self.nnn, z5, v5, z6, v6, t_series, Mx_series, My_series, Mz_series, M_series, self.dt, self.gamma, self.lam, self.J1_mu, self.J2_mu, self.K_mu, self.h_mu, self.q_pref, self.dt_q, self.amp5, self.amp6, self.iterations, self.stride)
 
-    def run_classical_time_series(self, t_series, Mx_series, My_series, Mz_series, M_series, E_series):
+    def run_classical_time_series(self, t_series, Mx_series, My_series, Mz_series, M_series):
         if self.integrator == "heun":
-            evolve_classical_time_series(self.S, self.nn, self.nnn, t_series, Mx_series, My_series, Mz_series, M_series, E_series, self.dt, self.gamma, self.lam, self.J1_mu, self.J2_mu, self.K_mu, self.h_mu, self.J1, self.J2, self.K, self.h, self.c_pref, self.iterations, self.stride)
+            evolve_classical_time_series(self.S, self.nn, self.nnn, t_series, Mx_series, My_series, Mz_series, M_series, self.dt, self.gamma, self.lam, self.J1_mu, self.J2_mu, self.K_mu, self.h_mu, self.c_pref, self.iterations, self.stride)
 
         elif self.integrator == "rkmk2":
-            evolve_classical_rkmk2_time_series(self.S, self.nn, self.nnn, t_series, Mx_series, My_series, Mz_series, M_series, E_series, self.dt, self.gamma, self.lam, self.J1_mu, self.J2_mu, self.K_mu, self.h_mu, self.J1, self.J2, self.K, self.h, self.c_pref, self.iterations, self.stride)
+            evolve_classical_rkmk2_time_series(self.S, self.nn, self.nnn, t_series, Mx_series, My_series, Mz_series, M_series, self.dt, self.gamma, self.lam, self.J1_mu, self.J2_mu, self.K_mu, self.h_mu, self.c_pref, self.iterations, self.stride)
 
         else:
             raise ValueError("integrator must be 'heun' or 'rkmk2'")
 
-    def run_deterministic_time_series(self, t_series, Mx_series, My_series, Mz_series, M_series, E_series):
+    def run_deterministic_time_series(self, t_series, Mx_series, My_series, Mz_series, M_series):
         if self.integrator == "heun":
-            evolve_deterministic_heun_time_series(self.S, self.nn, self.nnn, t_series, Mx_series, My_series, Mz_series, M_series, E_series, self.dt, self.gamma, self.lam, self.J1_mu, self.J2_mu, self.K_mu, self.h_mu, self.J1, self.J2, self.K, self.h, self.iterations, self.stride)
+            evolve_deterministic_heun_time_series(self.S, self.nn, self.nnn, t_series, Mx_series, My_series, Mz_series, M_series, self.dt, self.gamma, self.lam, self.J1_mu, self.J2_mu, self.K_mu, self.h_mu, self.iterations, self.stride)
 
         elif self.integrator == "rkmk2":
-            evolve_deterministic_rkmk2_time_series(self.S, self.nn, self.nnn, t_series, Mx_series, My_series, Mz_series, M_series, E_series, self.dt, self.gamma, self.lam, self.J1_mu, self.J2_mu, self.K_mu, self.h_mu, self.J1, self.J2, self.K, self.h, self.iterations, self.stride)
+            evolve_deterministic_rkmk2_time_series(self.S, self.nn, self.nnn, t_series, Mx_series, My_series, Mz_series, M_series, self.dt, self.gamma, self.lam, self.J1_mu, self.J2_mu, self.K_mu, self.h_mu, self.iterations, self.stride)
 
         else:
             raise ValueError("integrator must be 'heun' or 'rkmk2'")
-
-    def print_energy_diagnostics(self, E_series):
-        dE_series = E_series - E_series[0]
-
-        if abs(E_series[0]) > 0.0:
-            rel_dE_series = dE_series / abs(E_series[0])
-            max_rel_drift = np.max(np.abs(rel_dE_series))
-        else:
-            max_rel_drift = np.nan
-
-        print(f"Initial energy: {E_series[0]:.16e}")
-        print(f"Final energy:   {E_series[-1]:.16e}")
-        print(f"Final E - E0:   {dE_series[-1]:.16e}")
-        print(f"Max |E - E0|:   {np.max(np.abs(dE_series)):.16e}")
-        print(f"Max rel drift:  {max_rel_drift:.16e}")
 
     def run_spectrum(self):
         t0 = time.time()
@@ -224,13 +201,13 @@ class Simulation:
             raise ValueError("path_mode must be 'kx' or 'high_symmetry'")
 
         if self.initial_state == "fm":
-            plot_fm_magnon_spectrum(Sx_samp, Sy_samp, self.Lx, self.Ly, nsamp, dt_sample, self.J1, self.J2, self.K, self.h, self.gamma, self.mu, path_mode=self.spectrum_path, show_analytic=self.show_analytic)
+            plot_fm_magnon_spectrum(Sx_samp, Sy_samp, self.Lx, self.Ly, self.Lz, nsamp, dt_sample, self.J1, self.J2, self.K, self.h, self.gamma, self.mu, path_mode=self.spectrum_path, show_analytic=self.show_analytic)
 
         elif self.initial_state == "afm":
-            plot_afm_magnon_spectrum(Sx_samp, Sy_samp, self.Lx, self.Ly, nsamp, dt_sample, self.J1, self.J2, self.K, self.h, 1.0, self.gamma, self.mu, path_mode=self.spectrum_path, show_analytic=self.show_analytic)
+            plot_afm_magnon_spectrum(Sx_samp, Sy_samp, self.Lx, self.Ly, self.Lz, nsamp, dt_sample, self.J1, self.J2, self.K, self.h, 1.0, self.gamma, self.mu, path_mode=self.spectrum_path, show_analytic=self.show_analytic)
 
         else:
-            raise ValueError("initial_state must be 'fm' or 'afm'")
+            raise ValueError("Spectrum mode requires initial_state to be 'fm' or 'afm'")
 
         t1 = time.time()
         print(f"Simulation time: {t1 - t0:.3f} s")
