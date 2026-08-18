@@ -166,41 +166,35 @@ def extract_spectrum_path(S_kw, kx, ky, kz, omega, path_kx, path_ky, path_kz):
     return S_path
 
 
-def fm_analytic_dispersion(kx, ky, kz, Lz, J1, J2, K, h, gamma, mu):
+def fm_analytic_dispersion(kx, ky, kz, Lz, J, K, h, gamma, mu):
     if Lz == 1:
         gamma_1 = 0.5 * (np.cos(kx) + np.cos(ky))
-        gamma_2 = np.cos(kx) * np.cos(ky)
-        exchange = 4.0 * J1 * (1.0 - gamma_1) + 4.0 * J2 * (1.0 - gamma_2)
+        exchange = 4.0 * J * (1.0 - gamma_1)
     else:
         gamma_1 = (np.cos(kx) + np.cos(ky) + np.cos(kz)) / 3.0
-        gamma_2 = (np.cos(kx) * np.cos(ky) + np.cos(kx) * np.cos(kz) + np.cos(ky) * np.cos(kz)) / 3.0
-        exchange = 6.0 * J1 * (1.0 - gamma_1) + 12.0 * J2 * (1.0 - gamma_2)
+        exchange = 6.0 * J * (1.0 - gamma_1)
 
     omega = (gamma / mu) * (exchange + K + h)
 
     return omega
 
 
-def afm_analytic_branches(kx, ky, kz, Lz, J1, J2, K, h, S_spin, gamma, mu):
+def afm_analytic_branches(kx, ky, kz, Lz, J, K, h, S_spin, gamma, mu):
     if Lz == 1:
         z_coord = 4.0
         gamma_1 = 0.5 * (np.cos(kx) + np.cos(ky))
-        gamma_2 = np.cos(kx) * np.cos(ky)
     else:
         z_coord = 6.0
         gamma_1 = (np.cos(kx) + np.cos(ky) + np.cos(kz)) / 3.0
-        gamma_2 = (np.cos(kx) * np.cos(ky) + np.cos(kx) * np.cos(kz) + np.cos(ky) * np.cos(kz)) / 3.0
 
-    J1_scale = -J1
-    J2_scale = -J2
+    J_scale = -J
 
-    if J1_scale <= 0.0:
-        raise ValueError("For AFM analytic dispersion, J1 must be negative with this Hamiltonian convention.")
+    if J_scale <= 0.0:
+        raise ValueError("For AFM analytic dispersion, J must be negative with this Hamiltonian convention.")
 
-    JSz = J1_scale * S_spin * z_coord
+    JSz = J_scale * S_spin * z_coord
 
-    alpha = J2_scale / J1_scale
-    lambda_sw = 1.0 + K / JSz - alpha * (1.0 - gamma_2)
+    lambda_sw = 1.0 + K / JSz
     eta = h / JSz
 
     root_arg = lambda_sw * lambda_sw - gamma_1 * gamma_1
@@ -251,7 +245,7 @@ def plot_spectrum_path(S_path, omega, path_dist, tick_positions, tick_labels, an
     plt.tight_layout()
 
 
-def plot_fm_magnon_spectrum(Sx_samp, Sy_samp, Lx, Ly, Lz, nsamp, dt_sample, J1, J2, K, h, gamma, mu, path_mode="kx", show_analytic=True):
+def plot_fm_magnon_spectrum(Sx_samp, Sy_samp, Lx, Ly, Lz, nsamp, dt_sample, J, K, h, gamma, mu, path_mode="kx", show_analytic=True):
     if path_mode not in ("kx", "high_symmetry"):
         raise ValueError("path_mode must be 'kx' or 'high_symmetry'")
 
@@ -265,7 +259,7 @@ def plot_fm_magnon_spectrum(Sx_samp, Sy_samp, Lx, Ly, Lz, nsamp, dt_sample, J1, 
 
     if show_analytic:
         analytic_path_kx, analytic_path_ky, analytic_path_kz, analytic_path_dist, _, _ = build_path(path_mode, kx=None)
-        analytic = fm_analytic_dispersion(analytic_path_kx, analytic_path_ky, analytic_path_kz, Lz, J1, J2, K, h, gamma, mu)
+        analytic = fm_analytic_dispersion(analytic_path_kx, analytic_path_ky, analytic_path_kz, Lz, J, K, h, gamma, mu)
         analytic_curves = [(analytic_path_dist, analytic)]
     else:
         analytic_curves = None
@@ -273,7 +267,7 @@ def plot_fm_magnon_spectrum(Sx_samp, Sy_samp, Lx, Ly, Lz, nsamp, dt_sample, J1, 
     plot_spectrum_path(S_path, omega, path_dist, tick_positions, tick_labels, analytic_curves)
 
 
-def plot_afm_magnon_spectrum(Sx_samp, Sy_samp, Lx, Ly, Lz, nsamp, dt_sample, J1, J2, K, h, S_spin, gamma, mu, path_mode="kx", show_analytic=True, branch_mode="sum"):
+def plot_afm_magnon_spectrum(Sx_samp, Sy_samp, Lx, Ly, Lz, nsamp, dt_sample, J, K, h, S_spin, gamma, mu, path_mode="kx", show_analytic=True, branch_mode="sum"):
     if path_mode not in ("kx", "high_symmetry"):
         raise ValueError("path_mode must be 'kx' or 'high_symmetry'")
 
@@ -298,7 +292,7 @@ def plot_afm_magnon_spectrum(Sx_samp, Sy_samp, Lx, Ly, Lz, nsamp, dt_sample, J1,
 
     if show_analytic:
         analytic_path_kx, analytic_path_ky, analytic_path_kz, analytic_path_dist, _, _ = build_path(path_mode, kx=None)
-        omega_plus, omega_minus = afm_analytic_branches(analytic_path_kx, analytic_path_ky, analytic_path_kz, Lz, J1, J2, K, h, S_spin, gamma, mu)
+        omega_plus, omega_minus = afm_analytic_branches(analytic_path_kx, analytic_path_ky, analytic_path_kz, Lz, J, K, h, S_spin, gamma, mu)
         analytic_curves = [(analytic_path_dist, omega_plus), (analytic_path_dist, omega_minus)]
     else:
         analytic_curves = None

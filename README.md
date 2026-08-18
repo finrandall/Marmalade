@@ -1,1 +1,0 @@
-Marmalade is a Python framework for atomistic spin dynamics simulations, intended for those left with a bitter taste after C++. This repository contains a developing workflow for simulating spin systems using the Landau-Lifshitz-Gilbert equation.

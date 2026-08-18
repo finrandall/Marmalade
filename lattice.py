@@ -33,10 +33,8 @@ def build_neighbour_list(Lx, Ly, Lz=1, pbc_x=True, pbc_y=True, pbc_z=True):
 
     if Lz == 1:
         nn = np.empty((N, 4), dtype=np.int32)
-        nnn = np.empty((N, 4), dtype=np.int32)
     else:
         nn = np.empty((N, 6), dtype=np.int32)
-        nnn = np.empty((N, 12), dtype=np.int32)
 
     for iz in range(Lz):
         for iy in range(Ly):
@@ -48,40 +46,17 @@ def build_neighbour_list(Lx, Ly, Lz=1, pbc_x=True, pbc_y=True, pbc_z=True):
                 nn[i, 2] = boundary_index(ix, iy + 1, iz, Lx, Ly, Lz, pbc_x, pbc_y, pbc_z)
                 nn[i, 3] = boundary_index(ix, iy - 1, iz, Lx, Ly, Lz, pbc_x, pbc_y, pbc_z)
 
-                if Lz == 1:
-                    nnn[i, 0] = boundary_index(ix + 1, iy + 1, iz, Lx, Ly, Lz, pbc_x, pbc_y, pbc_z)
-                    nnn[i, 1] = boundary_index(ix + 1, iy - 1, iz, Lx, Ly, Lz, pbc_x, pbc_y, pbc_z)
-                    nnn[i, 2] = boundary_index(ix - 1, iy + 1, iz, Lx, Ly, Lz, pbc_x, pbc_y, pbc_z)
-                    nnn[i, 3] = boundary_index(ix - 1, iy - 1, iz, Lx, Ly, Lz, pbc_x, pbc_y, pbc_z)
-                else:
+                if Lz != 1:
                     nn[i, 4] = boundary_index(ix, iy, iz + 1, Lx, Ly, Lz, pbc_x, pbc_y, pbc_z)
                     nn[i, 5] = boundary_index(ix, iy, iz - 1, Lx, Ly, Lz, pbc_x, pbc_y, pbc_z)
 
-                    nnn[i, 0] = boundary_index(ix + 1, iy + 1, iz, Lx, Ly, Lz, pbc_x, pbc_y, pbc_z)
-                    nnn[i, 1] = boundary_index(ix + 1, iy - 1, iz, Lx, Ly, Lz, pbc_x, pbc_y, pbc_z)
-                    nnn[i, 2] = boundary_index(ix - 1, iy + 1, iz, Lx, Ly, Lz, pbc_x, pbc_y, pbc_z)
-                    nnn[i, 3] = boundary_index(ix - 1, iy - 1, iz, Lx, Ly, Lz, pbc_x, pbc_y, pbc_z)
-
-                    nnn[i, 4] = boundary_index(ix + 1, iy, iz + 1, Lx, Ly, Lz, pbc_x, pbc_y, pbc_z)
-                    nnn[i, 5] = boundary_index(ix + 1, iy, iz - 1, Lx, Ly, Lz, pbc_x, pbc_y, pbc_z)
-                    nnn[i, 6] = boundary_index(ix - 1, iy, iz + 1, Lx, Ly, Lz, pbc_x, pbc_y, pbc_z)
-                    nnn[i, 7] = boundary_index(ix - 1, iy, iz - 1, Lx, Ly, Lz, pbc_x, pbc_y, pbc_z)
-
-                    nnn[i, 8] = boundary_index(ix, iy + 1, iz + 1, Lx, Ly, Lz, pbc_x, pbc_y, pbc_z)
-                    nnn[i, 9] = boundary_index(ix, iy + 1, iz - 1, Lx, Ly, Lz, pbc_x, pbc_y, pbc_z)
-                    nnn[i, 10] = boundary_index(ix, iy - 1, iz + 1, Lx, Ly, Lz, pbc_x, pbc_y, pbc_z)
-                    nnn[i, 11] = boundary_index(ix, iy - 1, iz - 1, Lx, Ly, Lz, pbc_x, pbc_y, pbc_z)
-
-    return nn, nnn
+    return nn
 
 
-def neighbour_statistics(nn, nnn):
+def neighbour_statistics(nn):
     nn_entries = np.sum(nn != -1)
-    nnn_entries = np.sum(nnn != -1)
 
     return {
         "nn_entries": nn_entries,
         "nn_bonds": nn_entries // 2,
-        "nnn_entries": nnn_entries,
-        "nnn_bonds": nnn_entries // 2,
     }
