@@ -15,7 +15,8 @@ The reusable modules live directly in the `ASD` folder:
 - `lattice.py`: lattice and neighbour-list builders
 - `initialise.py`: reusable initial conditions
 - `evolve.py`: deterministic and stochastic evolution routines
-- `magnetisation.py` and `spectrum.py`: reusable observables and analysis
+- `observables.py`: reusable magnetisation and energy calculations
+- `plotting.py` and `spectrum.py`: reusable plotting and spectral analysis
 - `simulation.py`: optional high-level simulation interface
 
 A specialised research project can import only the machinery it needs:
@@ -39,22 +40,28 @@ python main.py --temperature 10 30 100 --noise-mode classical none
 mpiexec -n 4 python main.py --temperature 10 30 100
 ```
 
+Numba threads are divided between MPI ranks automatically to avoid CPU
+oversubscription. Use `--threads-per-rank` to override the automatic value.
+
 Stored data is selected independently:
 
 ```bash
 python main.py --outputs magnetisation_mean
 python main.py --outputs magnetisation_timeseries
+python main.py --outputs energy_timeseries
 python main.py --outputs spin_trajectory
 ```
 
 `magnetisation_mean` accumulates post-burn-in means, standard errors and a sample
 count without allocating a full time series. `magnetisation_timeseries` stores the
-sampled magnetisation history. `spin_trajectory` stores the sampled component of
-every spin.
+sampled magnetisation history. `energy_timeseries` stores the sampled total energy.
+Time-series outputs retain the full run so that burn-in can be chosen during
+post-processing. `spin_trajectory` stores the sampled component of every spin.
 
-Results are written as compressed `.npz` archives with an `index.csv`. Simulation
-code does not plot automatically; research projects can use `magnetisation.py`, `spectrum.py`,
-or their own analysis scripts.
+Each run is written to a date-and-time subfolder of the selected output directory.
+Results are stored as compressed `.npz` archives with an `index.csv`. Simulation
+code does not plot automatically; research projects can use `plotting.py`,
+`spectrum.py`, or their own analysis scripts.
 
 ## Development boundary
 

@@ -3,7 +3,7 @@ import numpy as np
 from numba import njit
 
 from integrators import heun_step
-from magnetisation import compute_magnetisation_components
+from observables import compute_energy, compute_magnetisation_components
 from noise import quantum_noise_field
 from noise import quantum_noise_update
 from noise import classical_noise_field
@@ -21,25 +21,29 @@ def store_spin_sample(S, sample, Sx_samp, Sy_samp, Sz_samp):
 
 
 @njit
-def record_magnetisation(S, step, dt, sample, save_series, t_series,
-                         Mx_series, My_series, Mz_series, M_series, moments):
+def record_observables(S, nn, step, dt, sample, save_magnetisation, save_energy,
+                       t_series, Mx_series, My_series, Mz_series, M_series,
+                       E_series, moments, J, K, h):
     mx, my, mz, magnitude = compute_magnetisation_components(S)
     values = (mx, my, mz, magnitude)
     moments[0] += 1.0
     for i in range(4):
         moments[1 + i] += values[i]
         moments[5 + i] += values[i] * values[i]
-    if save_series:
+    if save_magnetisation or save_energy:
         t_series[sample] = (step + 1) * dt
+    if save_magnetisation:
         Mx_series[sample] = mx
         My_series[sample] = my
         Mz_series[sample] = mz
         M_series[sample] = magnitude
+    if save_energy:
+        E_series[sample] = compute_energy(S, nn, J, K, h)
     return sample + 1
 
 
 @njit
-def evolve_quantum_time_series(S, nn, z5, v5, z6, v6, t_series, Mx_series, My_series, Mz_series, M_series, moments, save_series, dt, gamma, lam, J_mu, K_mu, h_mu, q_pref, dt_q, amp5, amp6, iterations, burn_in_steps, stride):
+def evolve_quantum_time_series(S, nn, z5, v5, z6, v6, t_series, Mx_series, My_series, Mz_series, M_series, E_series, moments, save_magnetisation, save_energy, dt, gamma, lam, J_mu, K_mu, h_mu, J, K, h, q_pref, dt_q, amp5, amp6, iterations, burn_in_steps, stride):
     n_sites = S.shape[0]
 
     H_eff = np.empty((n_sites, 3), dtype=np.float64)
@@ -63,12 +67,15 @@ def evolve_quantum_time_series(S, nn, z5, v5, z6, v6, t_series, Mx_series, My_se
         quantum_noise_update(z5, v5, z6, v6, dt_q, amp5, amp6)
 
         if step >= burn_in_steps and (step - burn_in_steps) % stride == 0:
-            sample = record_magnetisation(S, step, dt, sample, save_series, t_series,
-                Mx_series, My_series, Mz_series, M_series, moments)
+            sample = record_observables(S, nn, step, dt, sample, save_magnetisation,
+                save_energy, t_series, Mx_series, My_series, Mz_series, M_series,
+                E_series, moments, J, K, h)
+
+    return S
 
 
 @njit
-def evolve_classical_time_series(S, nn, t_series, Mx_series, My_series, Mz_series, M_series, moments, save_series, dt, gamma, lam, J_mu, K_mu, h_mu, c_pref, iterations, burn_in_steps, stride):
+def evolve_classical_time_series(S, nn, t_series, Mx_series, My_series, Mz_series, M_series, E_series, moments, save_magnetisation, save_energy, dt, gamma, lam, J_mu, K_mu, h_mu, J, K, h, c_pref, iterations, burn_in_steps, stride):
     n_sites = S.shape[0]
 
     H_eff = np.empty((n_sites, 3), dtype=np.float64)
@@ -90,12 +97,15 @@ def evolve_classical_time_series(S, nn, t_series, Mx_series, My_series, Mz_serie
         S, S_new = S_new, S
 
         if step >= burn_in_steps and (step - burn_in_steps) % stride == 0:
-            sample = record_magnetisation(S, step, dt, sample, save_series, t_series,
-                Mx_series, My_series, Mz_series, M_series, moments)
+            sample = record_observables(S, nn, step, dt, sample, save_magnetisation,
+                save_energy, t_series, Mx_series, My_series, Mz_series, M_series,
+                E_series, moments, J, K, h)
+
+    return S
 
 
 @njit
-def evolve_deterministic_heun_time_series(S, nn, t_series, Mx_series, My_series, Mz_series, M_series, moments, save_series, dt, gamma, lam, J_mu, K_mu, h_mu, iterations, burn_in_steps, stride):
+def evolve_deterministic_heun_time_series(S, nn, t_series, Mx_series, My_series, Mz_series, M_series, E_series, moments, save_magnetisation, save_energy, dt, gamma, lam, J_mu, K_mu, h_mu, J, K, h, iterations, burn_in_steps, stride):
     n_sites = S.shape[0]
 
     H_eff = np.empty((n_sites, 3), dtype=np.float64)
@@ -116,8 +126,11 @@ def evolve_deterministic_heun_time_series(S, nn, t_series, Mx_series, My_series,
         S, S_new = S_new, S
 
         if step >= burn_in_steps and (step - burn_in_steps) % stride == 0:
-            sample = record_magnetisation(S, step, dt, sample, save_series, t_series,
-                Mx_series, My_series, Mz_series, M_series, moments)
+            sample = record_observables(S, nn, step, dt, sample, save_magnetisation,
+                save_energy, t_series, Mx_series, My_series, Mz_series, M_series,
+                E_series, moments, J, K, h)
+
+    return S
 
 
 @njit

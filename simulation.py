@@ -9,6 +9,7 @@ from evolve import evolve_quantum_spin_samples, evolve_quantum_time_series
 from initialise import init_spins
 from lattice import build_neighbour_list
 from noise import init_quantum_noise, quantum_noise_amplitudes
+from observables import compute_energy
 
 
 class Simulation:
@@ -59,6 +60,8 @@ class Simulation:
             data = self.run_spin_trajectory()
             if "magnetisation_timeseries" in self.outputs or "magnetisation_mean" in self.outputs:
                 self.add_magnetisation_from_trajectory(data)
+            if "energy_timeseries" in self.outputs:
+                self.add_energy_from_trajectory(data)
             return data
         return self.run_magnetisation()
 
@@ -73,11 +76,23 @@ class Simulation:
                 "magnetisation_magnitude": magnitude,
             })
         if "magnetisation_mean" in self.outputs:
-            self.add_magnetisation_summary(data, np.vstack((mx, my, mz, magnitude)))
+            selected = data["time"] >= self.burn_in_time
+            self.add_magnetisation_summary(
+                data, np.vstack((mx[selected], my[selected], mz[selected], magnitude[selected])))
+
+    def add_energy_from_trajectory(self, data):
+        energy = np.empty(len(data["time"]), dtype=np.float64)
+        for sample in range(len(energy)):
+            spins = np.column_stack((
+                data["spin_x"][sample], data["spin_y"][sample], data["spin_z"][sample]))
+            energy[sample] = compute_energy(spins, self.nn, self.J, self.K, self.h)
+        data["energy"] = energy
 
     @staticmethod
     def add_magnetisation_summary(data, values):
         count = values.shape[1]
+        if count == 0:
+            raise ValueError("burn_in_time leaves no magnetisation samples")
         means = values.mean(axis=1)
         errors = values.std(axis=1) / np.sqrt(count)
         names = ("x", "y", "z", "magnitude")
@@ -88,50 +103,69 @@ class Simulation:
 
     def run_magnetisation(self):
         started = time.time()
-        burn_in_steps = int(round(self.burn_in_time / self.dt))
+        requested_magnetisation = "magnetisation_timeseries" in self.outputs
+        save_energy = "energy_timeseries" in self.outputs
+        save_time_series = requested_magnetisation or save_energy
+        burn_in_steps = 0 if save_time_series else int(round(self.burn_in_time / self.dt))
         n_samples = (self.iterations - burn_in_steps + self.stride - 1) // self.stride
-        save_series = "magnetisation_timeseries" in self.outputs
-        allocation = n_samples if save_series else 0
-        arrays = [np.empty(allocation, dtype=np.float64) for _ in range(5)]
-        t_series, mx, my, mz, magnitude = arrays
+        save_magnetisation = requested_magnetisation or (
+            save_time_series and "magnetisation_mean" in self.outputs)
+        allocation = n_samples if save_time_series else 0
+        arrays = [np.empty(allocation, dtype=np.float64) for _ in range(6)]
+        t_series, mx, my, mz, magnitude, energy = arrays
         moments = np.zeros(9, dtype=np.float64)
         if self.noise_mode == "quantum":
             if self.integrator != "heun":
                 raise ValueError("Quantum noise currently only supports the Heun integrator")
             z5, v5, z6, v6 = init_quantum_noise(self.N)
-            evolve_quantum_time_series(self.S, self.nn, z5, v5, z6, v6, *arrays, moments, save_series,
+            self.S = evolve_quantum_time_series(self.S, self.nn, z5, v5, z6, v6, *arrays, moments,
+                save_magnetisation, save_energy,
                 self.dt, self.gamma, self.lam, self.J_mu, self.K_mu, self.h_mu,
+                self.J, self.K, self.h,
                 self.q_pref, self.dt_q, self.amp5, self.amp6, self.iterations, burn_in_steps, self.stride)
         elif self.noise_mode == "classical":
-            evolve_classical_time_series(self.S, self.nn, *arrays, moments, save_series, self.dt, self.gamma, self.lam,
-                self.J_mu, self.K_mu, self.h_mu, self.c_pref, self.iterations, burn_in_steps, self.stride)
+            self.S = evolve_classical_time_series(self.S, self.nn, *arrays, moments, save_magnetisation, save_energy,
+                self.dt, self.gamma, self.lam, self.J_mu, self.K_mu, self.h_mu, self.J, self.K, self.h,
+                self.c_pref, self.iterations, burn_in_steps, self.stride)
         elif self.noise_mode == "none":
-            evolve_deterministic_heun_time_series(self.S, self.nn, *arrays, moments, save_series, self.dt, self.gamma, self.lam,
-                self.J_mu, self.K_mu, self.h_mu, self.iterations, burn_in_steps, self.stride)
+            self.S = evolve_deterministic_heun_time_series(self.S, self.nn, *arrays, moments, save_magnetisation, save_energy,
+                self.dt, self.gamma, self.lam, self.J_mu, self.K_mu, self.h_mu, self.J, self.K, self.h,
+                self.iterations, burn_in_steps, self.stride)
         else:
             raise ValueError("noise_mode must be 'quantum', 'classical' or 'none'")
 
         data = {"elapsed_seconds": np.array(time.time() - started)}
-        if save_series:
+        if save_time_series:
+            data["time"] = t_series
+        if requested_magnetisation:
             data.update({
-                "time": t_series, "magnetisation_x": mx, "magnetisation_y": my,
+                "magnetisation_x": mx, "magnetisation_y": my,
                 "magnetisation_z": mz, "magnetisation_magnitude": magnitude,
             })
+        if save_energy:
+            data["energy"] = energy
         if "magnetisation_mean" in self.outputs:
-            count = int(moments[0])
-            means = moments[1:5] / count
-            variances = np.maximum(moments[5:9] / count - means * means, 0.0)
-            data["magnetisation_sample_count"] = np.array(count)
-            for i, name in enumerate(("x", "y", "z", "magnitude")):
-                data[f"magnetisation_mean_{name}"] = np.array(means[i])
-                data[f"magnetisation_standard_error_{name}"] = np.array(np.sqrt(variances[i] / count))
+            if save_time_series:
+                selected = t_series >= self.burn_in_time
+                self.add_magnetisation_summary(
+                    data, np.vstack((mx[selected], my[selected], mz[selected], magnitude[selected])))
+            else:
+                count = int(moments[0])
+                means = moments[1:5] / count
+                variances = np.maximum(moments[5:9] / count - means * means, 0.0)
+                data["magnetisation_sample_count"] = np.array(count)
+                for i, name in enumerate(("x", "y", "z", "magnitude")):
+                    data[f"magnetisation_mean_{name}"] = np.array(means[i])
+                    data[f"magnetisation_standard_error_{name}"] = np.array(np.sqrt(variances[i] / count))
         return data
 
     def run_spin_trajectory(self):
         started = time.time()
         if self.integrator != "heun":
             raise ValueError("Spin trajectory output currently only supports the Heun integrator")
-        burn_in_steps = int(round(self.burn_in_time / self.dt))
+        save_observables = (
+            "magnetisation_timeseries" in self.outputs or "energy_timeseries" in self.outputs)
+        burn_in_steps = 0 if save_observables else int(round(self.burn_in_time / self.dt))
         remaining = self.iterations - burn_in_steps
         n_samples = (remaining + self.stride - 1) // self.stride
         sx = np.empty((n_samples, self.N), dtype=np.float32)

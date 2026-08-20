@@ -1,10 +1,12 @@
 import csv
 import itertools
 import time
+from datetime import datetime
 from pathlib import Path
 
 import numpy as np
 from mpi4py import MPI
+from numba import get_num_threads, set_num_threads
 
 from parameters import get_parameters
 from simulation import Simulation
@@ -13,6 +15,23 @@ from simulation import Simulation
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 size = comm.Get_size()
+
+
+def format_elapsed(seconds):
+    return f"{int(seconds // 60):02}:{seconds % 60:05.2f}"
+
+
+def configure_threads(settings):
+    available_threads = get_num_threads()
+    threads_per_rank = settings.get("threads_per_rank")
+    if threads_per_rank is None:
+        threads_per_rank = max(1, available_threads // size)
+    if threads_per_rank < 1 or threads_per_rank > available_threads:
+        raise ValueError(
+            f"threads_per_rank must be between 1 and {available_threads}")
+    set_num_threads(threads_per_rank)
+    if rank == 0:
+        print(f"MPI ranks: {size}; Numba threads per rank: {threads_per_rank}")
 
 
 def parameter_combinations(params):
@@ -53,8 +72,15 @@ def partition_combinations(combinations, settings):
 
 
 def save_results(results, settings):
-    output_path = Path(settings["output_directory"])
-    output_path.mkdir(parents=True, exist_ok=True)
+    output_directory = Path(settings["output_directory"])
+    output_directory.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    output_path = output_directory / timestamp
+    suffix = 1
+    while output_path.exists():
+        output_path = output_directory / f"{timestamp}_{suffix:02}"
+        suffix += 1
+    output_path.mkdir()
     index_rows = []
     for i, result in enumerate(results):
         filename = f"simulation_{i:04}.npz"
@@ -75,6 +101,7 @@ def main(params=None, settings=None):
         params = settings = None
     params = comm.bcast(params, root=0)
     settings = comm.bcast(settings, root=0)
+    configure_threads(settings)
 
     if rank == 0:
         combinations, rejected = partition_combinations(parameter_combinations(params), settings)
@@ -90,7 +117,16 @@ def main(params=None, settings=None):
     start = time.time()
     local_results = []
     for i in range(rank, len(combinations), size):
+        point_started = time.time()
         data = Simulation(combinations[i], settings["outputs"]).run()
+        point_elapsed = time.time() - point_started
+        combination = combinations[i]
+        print(
+            f"Point {i + 1}/{len(combinations)}: T={combination['T']:g} K, "
+            f"L=({combination['Lx']}, {combination['Ly']}, {combination['Lz']}) "
+            f"completed on rank {rank} in {format_elapsed(point_elapsed)}",
+            flush=True,
+        )
         local_results.append((i, {"parameters": combinations[i], "data": data}))
     gathered = comm.gather(local_results, root=0)
     elapsed = time.time() - start
@@ -100,7 +136,7 @@ def main(params=None, settings=None):
     indexed = [item for process_results in gathered for item in process_results]
     indexed.sort(key=lambda item: item[0])
     results = [result for _, result in indexed]
-    print(f"Simulation time: {int(elapsed // 60):02}:{elapsed % 60:05.2f}")
+    print(f"Simulation time: {format_elapsed(elapsed)}")
     print(f"Completed simulations: {len(results)}")
     output_path = save_results(results, settings)
     print(f"Saved results to: {output_path}")

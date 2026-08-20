@@ -3,7 +3,7 @@ import argparse
 import numpy as np
 
 
-OUTPUT_CHOICES = ("magnetisation_mean", "magnetisation_timeseries", "spin_trajectory")
+OUTPUT_CHOICES = ("magnetisation_mean", "magnetisation_timeseries", "energy_timeseries", "spin_trajectory")
 
 
 def default_parameters():
@@ -29,8 +29,9 @@ def default_parameters():
         "lam": np.array([0.01]),
     }
     settings = {
-        "outputs": ("magnetisation_mean",),
+        "outputs": ("magnetisation_timeseries", "energy_timeseries"),
         "output_directory": "results",
+        "threads_per_rank": None,
     }
     return params, settings
 
@@ -67,6 +68,7 @@ def get_parameters(args=None):
     parser.add_argument("--damping", type=float, nargs="+", default=params["lam"])
     parser.add_argument("--outputs", nargs="+", choices=OUTPUT_CHOICES, default=settings["outputs"])
     parser.add_argument("--output-directory", default=settings["output_directory"])
+    parser.add_argument("--threads-per-rank", type=int, default=settings["threads_per_rank"])
 
     options = parser.parse_args(args)
     option_names = {
@@ -80,6 +82,7 @@ def get_parameters(args=None):
         params[parameter_name] = np.asarray(getattr(options, option_name))
     settings["outputs"] = tuple(dict.fromkeys(options.outputs))
     settings["output_directory"] = options.output_directory
+    settings["threads_per_rank"] = options.threads_per_rank
     return params, settings
 
 
