@@ -5,33 +5,37 @@ from datetime import datetime
 from pathlib import Path
 
 import numpy as np
-from mpi4py import MPI
-from numba import get_num_threads, set_num_threads
 
-from parameters import get_parameters
-from simulation import Simulation
+if __package__ in (None, ""):
+    import sys
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    __package__ = "core"
 
-
-comm = MPI.COMM_WORLD
-rank = comm.Get_rank()
-size = comm.Get_size()
+from .parameters import get_parameters
+from .simulation import Simulation
+from .integrators import INTEGRATORS
+from .runtime import configure_runtime
+from .results import write_npz
+from .storage import prepare_output_directory
 
 
 def format_elapsed(seconds):
-    return f"{int(seconds // 60):02}:{seconds % 60:05.2f}"
+    hours, remainder = divmod(round(seconds), 3600)
+    minutes, seconds = divmod(remainder, 60)
+    return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
 
 
-def configure_threads(settings):
-    available_threads = get_num_threads()
-    threads_per_rank = settings.get("threads_per_rank")
-    if threads_per_rank is None:
-        threads_per_rank = max(1, available_threads // size)
-    if threads_per_rank < 1 or threads_per_rank > available_threads:
-        raise ValueError(
-            f"threads_per_rank must be between 1 and {available_threads}")
-    set_num_threads(threads_per_rank)
-    if rank == 0:
-        print(f"MPI ranks: {size}; Numba threads per rank: {threads_per_rank}")
+def configure_threads(settings, comm, mpi):
+    runtime = configure_runtime(settings, comm=comm, mpi=mpi)
+    settings["runtime"] = runtime
+    if comm.Get_rank() == 0:
+        print(
+            f"MPI ranks: {comm.Get_size()}; "
+            f"Numba threads per rank: {runtime['numba_threads']}; "
+            f"FFT workers per rank: {runtime['fft_workers']}; "
+            f"BLAS threads per rank: {runtime['blas_threads']}"
+        )
+    return runtime
 
 
 def parameter_combinations(params):
@@ -42,12 +46,8 @@ def parameter_combinations(params):
 def validate_combination(params, settings):
     if not settings["outputs"]:
         raise ValueError("At least one output must be selected")
-    if params["integrator"] != "heun":
-        raise ValueError("ASD currently supports only the Heun integrator")
-    if params["noise_mode"] == "quantum" and params["integrator"] != "heun":
-        raise ValueError("Quantum noise currently only supports the Heun integrator")
-    if "spin_trajectory" in settings["outputs"] and params["integrator"] != "heun":
-        raise ValueError("Spin trajectory output currently only supports the Heun integrator")
+    if params["integrator"] not in INTEGRATORS:
+        raise ValueError(f"integrator must be one of {INTEGRATORS}")
     if params["dt"] <= 0.0 or params["end_time"] <= 0.0:
         raise ValueError("dt and end_time must be positive")
     if params["burn_in_time"] < 0.0 or params["burn_in_time"] >= params["end_time"]:
@@ -72,7 +72,7 @@ def partition_combinations(combinations, settings):
 
 
 def save_results(results, settings):
-    output_directory = Path(settings["output_directory"])
+    output_directory = prepare_output_directory(settings["output_directory"])
     output_directory.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     output_path = output_directory / timestamp
@@ -85,7 +85,12 @@ def save_results(results, settings):
     for i, result in enumerate(results):
         filename = f"simulation_{i:04}.npz"
         archive = {**result["parameters"], "outputs": np.asarray(settings["outputs"]), **result["data"]}
-        np.savez_compressed(output_path / filename, **archive)
+        archive.update({f"runtime_{key}": value for key, value in settings["runtime"].items()})
+        temporary = output_path / f".{filename}.tmp"
+        with temporary.open("wb") as stream:
+            write_npz(stream, archive, settings.get("compressed", True),
+                      settings.get("compression_level", 1))
+        temporary.replace(output_path / filename)
         index_rows.append({"file": filename, "outputs": ";".join(settings["outputs"]), **result["parameters"]})
     with open(output_path / "index.csv", "w", newline="") as index_file:
         writer = csv.DictWriter(index_file, fieldnames=index_rows[0].keys())
@@ -95,13 +100,18 @@ def save_results(results, settings):
 
 
 def main(params=None, settings=None):
-    if rank == 0 and params is None:
+    if params is None:
         params, settings = get_parameters()
+    from mpi4py import MPI
+    comm = MPI.COMM_WORLD
+    rank = comm.Get_rank()
+    size = comm.Get_size()
     if rank != 0:
         params = settings = None
     params = comm.bcast(params, root=0)
     settings = comm.bcast(settings, root=0)
-    configure_threads(settings)
+    settings["output_directory"] = str(prepare_output_directory(settings["output_directory"]))
+    runtime = configure_threads(settings, comm, MPI)
 
     if rank == 0:
         combinations, rejected = partition_combinations(parameter_combinations(params), settings)
@@ -118,6 +128,7 @@ def main(params=None, settings=None):
     local_results = []
     for i in range(rank, len(combinations), size):
         point_started = time.time()
+        combinations[i]["fft_workers"] = runtime["fft_workers"]
         data = Simulation(combinations[i], settings["outputs"]).run()
         point_elapsed = time.time() - point_started
         combination = combinations[i]
