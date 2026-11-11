@@ -8,6 +8,31 @@ import tempfile
 REPOSITORY = Path(__file__).resolve().parents[1]
 MAC_DATA_ROOT = Path.home() / "SimulationData" / "ASD"
 MAC_BACKUP_ROOT = Path("/Volumes/b0069/Users/ed20f2r/ASD")
+DATA_LOCATIONS = (
+    ("crcl3/parameter_sets/lu2020_merons/results/sweep", "lu2020/sweeps"),
+    ("crcl3/parameter_sets/lu2020_merons/results/standard", "lu2020/single_runs"),
+    ("crcl3/parameter_sets/lu2020_merons/checks", "lu2020/timestep_convergence"),
+    ("crcl3/parameter_sets/chen2022_dirac/results/sweep", "chen2022/sweeps"),
+    ("crcl3/parameter_sets/chen2022_dirac/results/standard", "chen2022/single_runs"),
+    ("crcl3/runs/sweep/results", "chen2022/sweeps"),
+    ("crcl3/runs/standard/results", "chen2022/single_runs"),
+    ("crcl3/runs/standard", "chen2022/calculations"),
+    ("crcl3/runs/verification", "chen2022/single_runs"),
+    ("crcl3/runs/local_lowdamping_dt", "chen2022/timestep_convergence"),
+    ("crcl3/runs/calder_fft_sweep/returned_data", "chen2022/sweeps/quantum_fft_L512_lam0.1"),
+    ("crcl3/runs/calder_fft_sweep", "chen2022/sweeps/quantum_fft_L512_lam0.1"),
+    ("crcl3/runs/benchmarks", "benchmarks"),
+    ("tests/heisenberg_chain_equilibration/results", "engine_tests/heisenberg_chain_equilibration"),
+    ("tests/single_spin_precession/results", "engine_tests/single_spin_precession"),
+)
+
+
+def data_location(relative):
+    text = relative.as_posix()
+    for code, data in DATA_LOCATIONS:
+        if text == code or text.startswith(code + "/"):
+            return Path(data + text[len(code):])
+    return relative
 
 
 def _absolute(path):
@@ -41,7 +66,7 @@ def data_path(value, base=None):
     path = _absolute(path)
     root = data_root()
     if root is not None and path.is_relative_to(REPOSITORY):
-        path = root / path.relative_to(REPOSITORY)
+        path = root / data_location(path.relative_to(REPOSITORY))
     if root is not None and path.is_relative_to(root / "downloads"):
         path = root / path.relative_to(root / "downloads")
     return path

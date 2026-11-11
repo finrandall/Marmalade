@@ -19,10 +19,22 @@ def json_compatible(value):
     return value
 
 
-def create_output_directory(parent):
+def run_name(params):
+    noise = {"quantum": "quantum_aux"}.get(params.get("noise_mode"), params.get("noise_mode"))
+    start = {"fm_x": "xstart", "fm_y": "ystart", "fm_z": "zstart"}.get(params.get("initial_state"), params.get("initial_state"))
+    try:
+        temperature = float(params["T"])
+        label = f"{int(temperature):02d}" if temperature.is_integer() else f"{temperature:g}"
+        return (f"{noise}_L{int(params['Lx'])}_lam{float(params['lam']):g}_{start}_T{label}K_"
+                f"dt{float(params['dt']) * 1e15:g}fs_t{float(params['end_time']) * 1e9:g}ns_")
+    except (KeyError, TypeError, ValueError):
+        return ""
+
+
+def create_output_directory(parent, prefix=""):
     parent = prepare_output_directory(parent)
     parent.mkdir(parents=True, exist_ok=True)
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    timestamp = prefix + datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     output = parent / timestamp
     suffix = 1
     while output.exists():
@@ -50,7 +62,7 @@ def save_result(params, settings, data):
     settings = dict(settings)
     settings.setdefault("compressed", True)
     settings.setdefault("compression_level", 1)
-    output = create_output_directory(settings["output_directory"])
+    output = create_output_directory(settings["output_directory"], run_name(params))
     archive = dict(data)
     for name, value in params.items():
         if value is not None:
