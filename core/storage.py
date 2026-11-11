@@ -62,18 +62,22 @@ def backup_root():
 
 IMAGES = {".png", ".jpg", ".jpeg", ".svg", ".pdf", ".eps", ".tif", ".tiff", ".webp", ".gif"}
 TOPICS = (
-    ("tests", "01_engine_validation", False),
-    ("crcl3/runs/standard", "02_crcl3_single_runs", False),
-    ("crcl3/runs/verification", "02_crcl3_single_runs", False),
-    ("crcl3/runs/sweep", "03_crcl3_temperature_sweeps", False),
-    ("crcl3/runs/calder_fft_sweep", "04_crcl3_L512_magnons_merons", False),
-    ("crcl3_L512", "04_crcl3_L512_magnons_merons", True),
-    ("crcl3/runs/local_lowdamping_dt", "05_timestep_damping", False),
-    ("crcl3/parameter_sets/lu2020_merons", "06_lu2020_comparison", False),
-    ("lu2020", "06_lu2020_comparison", True),
-    ("_archive/hydrodynamics_pilot", "07_hydrodynamics", False),
-    ("crcl3/runs/benchmarks", "08_benchmarks", False),
+    ("tests/timestep_convergence", "timestep_convergence", "hoist", ""),
+    ("crcl3/runs/local_lowdamping_dt", "timestep_convergence", "hoist", "low_damping"),
+    ("crcl3/parameter_sets/lu2020_merons/checks", "timestep_convergence", "hoist", "dt_check"),
+    ("chen2022_quantum_fft_L512_xstart_dt25fs", "timestep_convergence", "hoist_study", "L512_dt_control"),
+    ("tests", "engine_validation", "strip", ""),
+    ("crcl3/runs/standard", "single_runs", "strip", ""),
+    ("crcl3/runs/verification", "single_runs", "strip", ""),
+    ("crcl3/runs/sweep", "temperature_sweeps", "strip", ""),
+    ("crcl3/runs/calder_fft_sweep", "L512_magnons_merons", "strip", ""),
+    ("chen2022_quantum_fft_L512", "L512_magnons_merons", "study", ""),
+    ("crcl3/parameter_sets/lu2020_merons", "lu2020_comparison", "strip", ""),
+    ("lu2020_", "lu2020_comparison", "study", ""),
+    ("_archive/hydrodynamics_pilot", "hydrodynamics", "strip", ""),
+    ("crcl3/runs/benchmarks", "benchmarks", "strip", ""),
 )
+PARAMETER_SETS = ("chen2022", "lu2020")
 
 
 def figures_root():
@@ -90,12 +94,20 @@ def figures_root():
 
 def topic_path(relative):
     text = relative.as_posix()
-    for prefix, topic, keep in TOPICS:
-        if keep and text.startswith(prefix):
-            return Path(topic) / relative
-        if text == prefix or text.startswith(prefix + "/"):
-            return Path(topic) / text[len(prefix):].lstrip("/")
-    return Path("00_unsorted") / relative
+    for prefix, topic, mode, label in TOPICS:
+        study = mode in ("study", "hoist_study")
+        if study and text.startswith(prefix):
+            rest = text
+        elif not study and (text == prefix or text.startswith(prefix + "/")):
+            rest = text[len(prefix):].lstrip("/")
+        else:
+            continue
+        if mode.startswith("hoist"):
+            parameter_set = next((name for name in PARAMETER_SETS for part in Path(rest).parts
+                                  if part == name or part.startswith(name + "_")), "unknown_parameters")
+            return Path(topic) / parameter_set / label / rest
+        return Path(topic) / rest
+    return Path("unsorted") / relative
 
 
 def processed_path(value):
