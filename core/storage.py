@@ -1,7 +1,6 @@
 from pathlib import Path
 import argparse
 import os
-import shutil
 import sys
 import tempfile
 
@@ -60,67 +59,8 @@ def backup_root():
     return root
 
 
-IMAGES = {".png", ".jpg", ".jpeg", ".svg", ".pdf", ".eps", ".tif", ".tiff", ".webp", ".gif"}
-TOPICS = (
-    ("tests/timestep_convergence", "timestep_convergence", "hoist", ""),
-    ("crcl3/runs/local_lowdamping_dt", "timestep_convergence", "hoist", "low_damping"),
-    ("crcl3/parameter_sets/lu2020_merons/checks", "timestep_convergence", "hoist", "dt_check"),
-    ("chen2022_quantum_fft_L512_lam0.1_xstart_dt25fs", "timestep_convergence", "hoist_study", "L512_dt_control"),
-    ("tests", "engine_validation", "strip", ""),
-    ("crcl3/runs/standard", "single_runs", "strip", ""),
-    ("crcl3/runs/verification", "single_runs", "strip", ""),
-    ("crcl3/runs/sweep", "temperature_sweeps", "strip", ""),
-    ("crcl3/runs/calder_fft_sweep", "L512_magnons_merons", "strip", ""),
-    ("chen2022_quantum_fft_L512", "L512_magnons_merons", "study", ""),
-    ("crcl3/parameter_sets/lu2020_merons", "lu2020_comparison", "strip", ""),
-    ("lu2020_", "lu2020_comparison", "study", ""),
-    ("_archive/hydrodynamics_pilot", "hydrodynamics", "strip", ""),
-    ("crcl3/runs/benchmarks", "benchmarks", "strip", ""),
-)
-PARAMETER_SETS = ("chen2022", "lu2020")
-
-
-def figures_root():
-    configured = os.environ.get("ASD_PROCESSED_ROOT")
-    if configured:
-        root = Path(configured).expanduser()
-        if not root.is_absolute():
-            raise ValueError("ASD_PROCESSED_ROOT must be an absolute path")
-        return _absolute(root)
-    if sys.platform == "darwin" or data_root() is not None:
-        return REPOSITORY.parent / "ASD Figures"
-    return None
-
-
-def topic_path(relative):
-    text = relative.as_posix()
-    for prefix, topic, mode, label in TOPICS:
-        study = mode in ("study", "hoist_study")
-        if study and text.startswith(prefix):
-            rest = text
-        elif not study and (text == prefix or text.startswith(prefix + "/")):
-            rest = text[len(prefix):].lstrip("/")
-        else:
-            continue
-        if mode.startswith("hoist"):
-            parameter_set = next((name for name in PARAMETER_SETS for part in Path(rest).parts
-                                  if part == name or part.startswith(name + "_")), "unknown_parameters")
-            return Path(topic) / parameter_set / label / rest
-        return Path(topic) / rest
-    return Path("unsorted") / relative
-
-
 def processed_path(value):
-    path = _absolute(value)
-    root = figures_root()
-    if root is None or path.is_relative_to(root):
-        return path
-    if path.suffix.lower() not in IMAGES:
-        return data_path(path)
-    for origin in (data_root(), backup_root(), REPOSITORY):
-        if origin is not None and path.is_relative_to(origin):
-            return root / topic_path(path.relative_to(origin))
-    return path
+    return data_path(value)
 
 
 def prepare_processed_directory(value):
@@ -130,19 +70,13 @@ def prepare_processed_directory(value):
 
 
 def processed_file(value):
-    path = processed_path(value)
+    path = data_path(value)
     path.parent.mkdir(parents=True, exist_ok=True)
     return path
 
 
 def publish_processed_file(value):
-    source = _absolute(value)
-    destination = processed_path(source)
-    if destination == source or source.suffix.lower() not in IMAGES:
-        return source
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(source, destination)
-    return destination
+    return data_path(value)
 
 
 def check_storage(value):
