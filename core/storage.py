@@ -65,7 +65,7 @@ TOPICS = (
     ("tests/timestep_convergence", "timestep_convergence", "hoist", ""),
     ("crcl3/runs/local_lowdamping_dt", "timestep_convergence", "hoist", "low_damping"),
     ("crcl3/parameter_sets/lu2020_merons/checks", "timestep_convergence", "hoist", "dt_check"),
-    ("chen2022_quantum_fft_L512_xstart_dt25fs", "timestep_convergence", "hoist_study", "L512_dt_control"),
+    ("chen2022_quantum_fft_L512_lam0.1_xstart_dt25fs", "timestep_convergence", "hoist_study", "L512_dt_control"),
     ("tests", "engine_validation", "strip", ""),
     ("crcl3/runs/standard", "single_runs", "strip", ""),
     ("crcl3/runs/verification", "single_runs", "strip", ""),
